@@ -1,0 +1,103 @@
+name: Build unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      relay_url:
+        description: "Optional default Herdr Mobile Relay URL"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      EXPO_PUBLIC_HERDR_URL: ${{ inputs.relay_url }}
+      EXPO_NO_GIT_STATUS: "1"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Show Apple toolchain
+        run: |
+          xcodebuild -version
+          xcode-select -p
+          pod --version
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate iOS project
+        run: pnpm exec expo prebuild --clean --platform ios
+
+      - name: Install CocoaPods dependencies
+        run: pod install --project-directory=ios --deployment
+
+      - name: Archive unsigned app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
+          if [[ -z "$workspace" ]]; then
+            echo "No Xcode workspace was generated" >&2
+            exit 1
+          fi
+
+          scheme="$(basename "$workspace" .xcworkspace)"
+          echo "workspace=$workspace"
+          echo "scheme=$scheme"
+          xcodebuild -list -workspace "$workspace"
+
+          xcodebuild archive \
+            -workspace "$workspace" \
+            -scheme "$scheme" \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$PWD/build/Herdr.xcarchive" \
+            -derivedDataPath "$PWD/build/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$(find build/Herdr.xcarchive/Products/Applications -maxdepth 1 -type d -name '*.app' -print -quit)"
+          if [[ -z "$app_path" ]]; then
+            echo "No archived application was found" >&2
+            exit 1
+          fi
+
+          rm -rf build/Payload
+          mkdir -p build/Payload
+          cp -R "$app_path" build/Payload/
+          (cd build && zip -qry Herdr-unsigned.ipa Payload)
+          file build/Herdr-unsigned.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Herdr-unsigned-ipa
+          path: build/Herdr-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
