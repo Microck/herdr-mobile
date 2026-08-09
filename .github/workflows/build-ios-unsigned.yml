@@ -1,4 +1,4 @@
-name: Build unsigned iOS IPA
+name: Build signed iOS IPA
 
 on:
   workflow_dispatch:
@@ -8,14 +8,19 @@ on:
         required: false
         type: string
         default: ""
+      export_method:
+        description: "Xcode export method for archive signing"
+        required: false
+        type: string
+        default: ad-hoc
 
 permissions:
   contents: read
 
 jobs:
   build-ios:
-    runs-on: macos-26
-    timeout-minutes: 60
+    runs-on: macos-14
+    timeout-minutes: 90
     env:
       EXPO_PUBLIC_HERDR_URL: ${{ inputs.relay_url }}
       EXPO_NO_GIT_STATUS: "1"
@@ -51,11 +56,78 @@ jobs:
       - name: Install CocoaPods dependencies
         run: pod install --project-directory=ios --deployment
 
-      - name: Archive unsigned app
+      - name: Verify signing secrets
+        shell: bash
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=0
+
+          if [ -z "$APPLE_TEAM_ID" ]; then
+            echo "Missing APPLE_TEAM_ID." >&2
+            missing=1
+          fi
+          if [ -z "$APP_STORE_CONNECT_ISSUER_ID" ]; then
+            echo "Missing APP_STORE_CONNECT_ISSUER_ID." >&2
+            missing=1
+          fi
+          if [ -z "$APP_STORE_CONNECT_KEY_ID" ]; then
+            echo "Missing APP_STORE_CONNECT_KEY_ID." >&2
+            missing=1
+          fi
+          if [ -z "$APP_STORE_CONNECT_PRIVATE_KEY" ]; then
+            echo "Missing APP_STORE_CONNECT_PRIVATE_KEY." >&2
+            missing=1
+          fi
+          if [ -z "$BUILD_CERTIFICATE_BASE64" ]; then
+            echo "Missing BUILD_CERTIFICATE_BASE64." >&2
+            missing=1
+          fi
+          if [ -z "$P12_PASSWORD" ]; then
+            echo "Missing P12_PASSWORD." >&2
+            missing=1
+          fi
+
+          if [ "$missing" -ne 0 ]; then
+            echo "Signing workflow cannot start without all required iOS signing secrets." >&2
+            exit 1
+          fi
+
+      - name: Prepare build paths
+        id: paths
+        shell: bash
+        run: |
+          echo "archive=$RUNNER_TEMP/Herdr.xcarchive" >> "$GITHUB_OUTPUT"
+          echo "export=$RUNNER_TEMP/herdr-export" >> "$GITHUB_OUTPUT"
+          echo "api_key=$RUNNER_TEMP/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8" >> "$GITHUB_OUTPUT"
+          echo "export_options=$RUNNER_TEMP/export-options.plist" >> "$GITHUB_OUTPUT"
+
+      - name: Write App Store Connect API key
+        shell: bash
+        run: |
+          mkdir -p "$(dirname '${{ steps.paths.outputs.api_key }}')"
+          cat > "${{ steps.paths.outputs.api_key }}" <<'KEYEOF'
+          ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          KEYEOF
+          chmod 600 "${{ steps.paths.outputs.api_key }}"
+
+      - name: Import Apple distribution certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.P12_PASSWORD }}
+
+      - name: Resolve workspace and scheme
+        id: ios-target
         shell: bash
         run: |
           set -euo pipefail
-
           workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
           if [[ -z "$workspace" ]]; then
             echo "No Xcode workspace was generated" >&2
@@ -65,39 +137,90 @@ jobs:
           scheme="$(basename "$workspace" .xcworkspace)"
           echo "workspace=$workspace"
           echo "scheme=$scheme"
-          xcodebuild -list -workspace "$workspace"
+          echo "workspace=$workspace" >> "$GITHUB_OUTPUT"
+          echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
 
-          xcodebuild archive \
-            -workspace "$workspace" \
-            -scheme "$scheme" \
-            -configuration Release \
-            -sdk iphoneos \
-            -archivePath "$PWD/build/Herdr.xcarchive" \
-            -derivedDataPath "$PWD/build/DerivedData" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
-
-      - name: Package unsigned IPA
+      - name: Archive signed app
         shell: bash
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           set -euo pipefail
-          app_path="$(find build/Herdr.xcarchive/Products/Applications -maxdepth 1 -type d -name '*.app' -print -quit)"
-          if [[ -z "$app_path" ]]; then
-            echo "No archived application was found" >&2
+          xcodebuild archive \
+            -workspace "${{ steps.ios-target.outputs.workspace }}" \
+            -scheme "${{ steps.ios-target.outputs.scheme }}" \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "${{ steps.paths.outputs.archive }}" \
+            -derivedDataPath "$PWD/build/DerivedData" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "${{ steps.paths.outputs.api_key }}" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            clean archive
+
+      - name: Prepare export options
+        shell: bash
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          EXPORT_METHOD: ${{ inputs.export_method }}
+        run: |
+          set -euo pipefail
+          cat > "${{ steps.paths.outputs.export_options }}" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>destination</key>
+            <string>export</string>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          PLIST
+
+          /usr/libexec/PlistBuddy -c "Set :method $EXPORT_METHOD" "${{ steps.paths.outputs.export_options }}"
+          /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "${{ steps.paths.outputs.export_options }}"
+
+      - name: Export IPA
+        shell: bash
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${{ steps.paths.outputs.export }}"
+          xcodebuild -exportArchive \
+            -archivePath "${{ steps.paths.outputs.archive }}" \
+            -exportPath "${{ steps.paths.outputs.export }}" \
+            -exportOptionsPlist "${{ steps.paths.outputs.export_options }}" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "${{ steps.paths.outputs.api_key }}" \
+            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+
+      - name: Locate signed IPA
+        id: ipa
+        shell: bash
+        run: |
+          ipa_path="$(find '${{ steps.paths.outputs.export }}' -maxdepth 2 -name '*.ipa' -print -quit)"
+          if [ -z "$ipa_path" ]; then
+            echo "No signed ipa found in ${{ steps.paths.outputs.export }}" >&2
             exit 1
           fi
-
-          rm -rf build/Payload
-          mkdir -p build/Payload
-          cp -R "$app_path" build/Payload/
-          (cd build && zip -qry Herdr-unsigned.ipa Payload)
-          file build/Herdr-unsigned.ipa
+          echo "path=$ipa_path" >> "$GITHUB_OUTPUT"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Herdr-unsigned-ipa
-          path: build/Herdr-unsigned.ipa
+          name: Herdr-ipa
+          path: ${{ steps.ipa.outputs.path }}
           if-no-files-found: error
           retention-days: 7
