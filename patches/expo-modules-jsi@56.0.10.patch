@@ -1,12 +1,3 @@
-diff --git a/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift b/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
-index a0e3e24d6070c5ec0a220af3cb56fe3373fe1968..d610cc38dd8dee363ea2f1822aea0c4a492cf825 100644
---- a/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
-+++ b/apple/Sources/ExpoModulesJSI/Runtime/JavaScriptRuntime.swift
-@@ -215,3 +215,3 @@ open class JavaScriptRuntime: Equatable, @unchecked Sendable {
-     // raises a `jsi::JSError` directly, without crossing the Swift boundary.
-     let callbacks = expo.HostObjectCallbacks(
-       context, getter, set == nil ? nil : setter, propertyNamesGetter, deallocate)
-
 diff --git a/package/apple/Package.swift b/package/apple/Package.swift
 index aafdf8f..d8a7b5f 100644
 --- a/package/apple/Package.swift
