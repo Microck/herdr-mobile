@@ -73,8 +73,8 @@ jobs:
               s/,\s*\)/)/g;
               s/public protocol JavaScriptType\s*:\s*Sendable\s*,\s*~Copyable/public protocol JavaScriptType: ~Copyable/;
               s/(^\\s*(?:public|internal|fileprivate|private|open)?\\s*(?:final\\s+)?class\\s+JavaScriptRuntimeExecutor)\\s*:[^{]*\\{/$1: JavaScriptExecutor, @unchecked Sendable {/m;
-              s/(^\\s*(?:public|internal|fileprivate|private|open)?\\s*(?:final\\s+)?class\\s+HostFunctionContext)\s*:\s*Sendable/$1/ m;
-              s/(^\\s*(?:public|internal|fileprivate|private|open)?\\s*(?:final\\s+)?class\\s+HostObjectContext)\s*:\s*Sendable/$1/ m;
+              s/(^\\s*(?:public|internal|fileprivate|private|open)?\\s*(?:final\\s+)?class\\s+HostFunctionContext)\s*:\s*Sendable/$1/m;
+              s/(^\\s*(?:public|internal|fileprivate|private|open)?\\s*(?:final\\s+)?class\\s+HostObjectContext)\s*:\s*Sendable/$1/m;
             ' "$file"
           }
 
