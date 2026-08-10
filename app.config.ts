@@ -8,9 +8,13 @@ const dmSansFonts = {
 
 const icon = "./assets/prod/herdr-app-icon-1024.png";
 const isDebugBuild = process.env.HERDR_APP_VARIANT === "debug";
+const bundleIdOverride = process.env.HERDR_IOS_BUNDLE_ID?.trim();
 const appName = isDebugBuild ? "Herdr Debug" : "Herdr";
 const scheme = isDebugBuild ? "herdr-debug" : "herdr";
-const bundleIdentifier = isDebugBuild ? "dev.herdr.mobile.debug" : "dev.herdr.mobile";
+const defaultBundleIdentifier = isDebugBuild
+  ? "dev.herdr.mobile.debug"
+  : "dev.herdr.mobile";
+const bundleIdentifier = bundleIdOverride || defaultBundleIdentifier;
 
 const config: ExpoConfig = {
   name: appName,
@@ -75,7 +79,15 @@ const config: ExpoConfig = {
         dark: { image: icon, backgroundColor: "#0a0a0a" },
       },
     ],
-    ["expo-build-properties", { ios: { deploymentTarget: "18.0" } }],
+    [
+      "expo-build-properties",
+      {
+        ios: {
+          deploymentTarget: "18.0",
+          newArchEnabled: false,
+        },
+      },
+    ],
     "./plugins/withIosCocoaPodsUuidCache.cjs",
     "./plugins/withIosSceneLifecycle.cjs",
     "./plugins/withAndroidCleartextTraffic.cjs",
