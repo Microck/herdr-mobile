@@ -72,6 +72,23 @@ jobs:
           RCT_NEW_ARCH_ENABLED: "1"
         run: pnpm exec expo prebuild --clean --platform ios
 
+      - name: Pin Clerk iOS SDK to Swift 5.10 compatible version
+        env:
+          TARGET_CLERK_IOS_VERSION: "1.1.0"
+        run: |
+          set -euo pipefail
+          updated=0
+          while IFS= read -r -d '' spec; do
+            if grep -q "clerk_ios_version" "$spec"; then
+              perl -0777 -i -pe "s/clerk_ios_version\\s*=\\s*'[^']+'/clerk_ios_version = '$TARGET_CLERK_IOS_VERSION'/g" "$spec"
+              echo "Patched $spec"
+              updated=1
+            fi
+          done < <(find node_modules -name ClerkExpo.podspec -print0)
+          if [ "$updated" -eq 0 ]; then
+            echo "No ClerkExpo podspec files were patched"
+          fi
+
       - name: Install CocoaPods dependencies
         env:
           EXPO_NEW_ARCH_ENABLED: "1"
