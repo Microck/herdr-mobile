@@ -91,6 +91,28 @@ jobs:
             echo "No ClerkExpo podspec files were patched"
           fi
 
+      - name: Pin iOS SwiftPM package tools versions for this runner
+        run: |
+          set -euo pipefail
+          TARGET_SWIFT_TOOLS_VERSION="6.0"
+          if ! echo "$TARGET_SWIFT_TOOLS_VERSION" | grep -qE '^[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
+            echo "Invalid TARGET_SWIFT_TOOLS_VERSION: $TARGET_SWIFT_TOOLS_VERSION" >&2
+            exit 1
+          fi
+          echo "Pinning selected SwiftPM package tools versions to $TARGET_SWIFT_TOOLS_VERSION"
+          updated=0
+          while IFS= read -r -d '' manifest; do
+            if grep -Eq '(^|//) swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$' "$manifest" && \
+               ! grep -q "// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}" "$manifest"; then
+              perl -0pi -e "s#// swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?#// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}#g" "$manifest"
+              echo "Patched $manifest"
+              updated=1
+            fi
+          done < <(find node_modules -type f -name Package.swift -print0)
+          if [ "$updated" -eq 0 ]; then
+            echo "No matching Package.swift manifests were patched"
+          fi
+
       - name: Install CocoaPods dependencies
         env:
           EXPO_NEW_ARCH_ENABLED: "1"
