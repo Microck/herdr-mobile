@@ -105,8 +105,7 @@ jobs:
           manifest_count=0
           while IFS= read -r -d '' manifest; do
             manifest_count=$((manifest_count + 1))
-            if grep -Eq '(^|//) swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$' "$manifest" && \
-               echo "$manifest" | grep -q 'expo-modules-jsi' && \
+            if grep -Eq '(^|//) swift-tools-version:\\s*6\\.[0-9]+(?:\\.[0-9]+)?$' "$manifest" && \
                ! grep -q "// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}" "$manifest"; then
               perl -0pi -e "s#// swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?#// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}#g" "$manifest"
               echo "Patched $manifest"
@@ -117,7 +116,7 @@ jobs:
             echo "No Package.swift manifests were found under node_modules."
           fi
           if [ -f ios/build/generated/ios/$TARGET_MANIFEST ]; then
-            if grep -Eq '(^|//) swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$' ios/build/generated/ios/$TARGET_MANIFEST && \
+            if grep -Eq '(^|//) swift-tools-version:\\s*6\\.[0-9]+(?:\\.[0-9]+)?$' ios/build/generated/ios/$TARGET_MANIFEST && \
                ! grep -q "// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}" ios/build/generated/ios/$TARGET_MANIFEST; then
               perl -0pi -e "s#// swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?#// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}#g" ios/build/generated/ios/$TARGET_MANIFEST
               echo "Patched ios/build/generated/ios/$TARGET_MANIFEST"
