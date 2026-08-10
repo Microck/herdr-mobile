@@ -1,4 +1,4 @@
-name: Build signed iOS IPA
+name: Build unsigned iOS IPA
 
 on:
   workflow_dispatch:
@@ -8,11 +8,6 @@ on:
         required: false
         type: string
         default: ""
-      export_method:
-        description: "Xcode export method for archive signing"
-        required: false
-        type: string
-        default: ad-hoc
 
 permissions:
   contents: read
@@ -22,21 +17,13 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 90
     env:
-      DEVELOPER_DIR: /Applications/Xcode_16.2.app
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app
       EXPO_NEW_ARCH_ENABLED: "1"
       RCT_NEW_ARCH_ENABLED: "1"
       EXPO_PUBLIC_HERDR_URL: ${{ inputs.relay_url }}
       EXPO_NO_GIT_STATUS: "1"
-      HERDR_IOS_BUNDLE_ID: ${{ secrets.HERDR_IOS_BUNDLE_ID }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
       BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
-      BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-      BUILD_MOBILEPROVISION_BASE64: ${{ secrets.BUILD_MOBILEPROVISION_BASE64 }}
-      BUILD_MOBILEPROVISION_UUID: ${{ secrets.BUILD_MOBILEPROVISION_UUID }}
-      BUILD_PROVISIONING_PROFILE_NAME: ${{ secrets.BUILD_PROVISIONING_PROFILE_NAME }}
-      BUILD_SIGNING_IDENTITY: ${{ secrets.BUILD_SIGNING_IDENTITY }}
-      P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
 
     steps:
       - name: Check out source
@@ -54,10 +41,10 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
 
-      - name: Set up Xcode 16.2
+      - name: Set up Xcode 16.4
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "16.2"
+          xcode-version: "16.4"
 
       - name: Show Apple toolchain
         run: |
@@ -91,132 +78,18 @@ jobs:
             echo "No ClerkExpo podspec files were patched"
           fi
 
-      - name: Pin iOS SwiftPM package tools versions for this runner
-        run: |
-          set -euo pipefail
-          TARGET_SWIFT_TOOLS_VERSION="6.0"
-          TARGET_MANIFEST="Package.swift"
-          if ! echo "$TARGET_SWIFT_TOOLS_VERSION" | grep -qE '^[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
-            echo "Invalid TARGET_SWIFT_TOOLS_VERSION: $TARGET_SWIFT_TOOLS_VERSION" >&2
-            exit 1
-          fi
-          echo "Pinning selected SwiftPM package tools versions to $TARGET_SWIFT_TOOLS_VERSION"
-          echo "Scanning for Package.swift manifests in this checkout..."
-          updated=0
-          manifest_count=0
-          scan_manifests() {
-            local root="$1"
-            if [ ! -d "$root" ]; then
-              return 0
-            fi
-            while IFS= read -r -d '' manifest; do
-              manifest_count=$((manifest_count + 1))
-              if grep -Eq '(^|//) swift-tools-version:\\s*6\\.[0-9]+(?:\\.[0-9]+)?$' "$manifest" && \
-                 ! grep -q "// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}" "$manifest"; then
-                perl -0pi -e "s#// swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?#// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}#g" "$manifest"
-                echo "Patched $manifest"
-                updated=1
-              fi
-            done < <(find -L "$root" -type f -name "$TARGET_MANIFEST" -print0)
-          }
-
-          scan_manifests "node_modules"
-          scan_manifests "ios"
-          scan_manifests "build/DerivedData/SourcePackages/checkouts"
-          if [ "$manifest_count" -eq 0 ]; then
-            echo "No Package.swift manifests were found in node_modules/ios/build/DerivedData paths."
-          fi
-          if [ "$updated" -eq 0 ]; then
-            echo "No matching Package.swift manifests were patched"
-          fi
-
       - name: Install CocoaPods dependencies
         env:
           EXPO_NEW_ARCH_ENABLED: "1"
           RCT_NEW_ARCH_ENABLED: "1"
         run: pod install --project-directory=ios --deployment
 
-      - name: Verify signing secrets
-        shell: bash
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          HERDR_IOS_BUNDLE_ID: ${{ secrets.HERDR_IOS_BUNDLE_ID }}
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          BUILD_MOBILEPROVISION_BASE64: ${{ secrets.BUILD_MOBILEPROVISION_BASE64 }}
-          BUILD_MOBILEPROVISION_UUID: ${{ secrets.BUILD_MOBILEPROVISION_UUID }}
-          BUILD_PROVISIONING_PROFILE_NAME: ${{ secrets.BUILD_PROVISIONING_PROFILE_NAME }}
-          BUILD_SIGNING_IDENTITY: ${{ secrets.BUILD_SIGNING_IDENTITY }}
-          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
-        run: |
-          set -euo pipefail
-          missing=0
-
-          if [ -z "$APPLE_TEAM_ID" ]; then
-            echo "Missing APPLE_TEAM_ID." >&2
-            missing=1
-          fi
-          if [ -z "$HERDR_IOS_BUNDLE_ID" ]; then
-            echo "Missing HERDR_IOS_BUNDLE_ID." >&2
-            missing=1
-          fi
-          if [ -z "$BUILD_CERTIFICATE_BASE64" ]; then
-            echo "Missing BUILD_CERTIFICATE_BASE64." >&2
-            missing=1
-          fi
-          if [ -z "$BUILD_MOBILEPROVISION_BASE64" ]; then
-            echo "Missing BUILD_MOBILEPROVISION_BASE64." >&2
-            missing=1
-          fi
-          if [ -z "$BUILD_MOBILEPROVISION_UUID" ]; then
-            echo "Missing BUILD_MOBILEPROVISION_UUID." >&2
-            missing=1
-          fi
-          if [ -z "$BUILD_PROVISIONING_PROFILE_NAME" ]; then
-            echo "Missing BUILD_PROVISIONING_PROFILE_NAME." >&2
-            missing=1
-          fi
-          if [ -z "$BUILD_SIGNING_IDENTITY" ]; then
-            echo "Missing BUILD_SIGNING_IDENTITY." >&2
-            missing=1
-          fi
-          if [ -z "$P12_PASSWORD" ]; then
-            echo "Missing P12_PASSWORD." >&2
-            missing=1
-          fi
-
-          if [ "$missing" -ne 0 ]; then
-            echo "Signing workflow cannot start without all required iOS signing secrets." >&2
-            exit 1
-          fi
-
       - name: Prepare build paths
         id: paths
         shell: bash
         run: |
           echo "archive=$RUNNER_TEMP/Herdr.xcarchive" >> "$GITHUB_OUTPUT"
-          echo "export=$RUNNER_TEMP/herdr-export" >> "$GITHUB_OUTPUT"
-          echo "certificate=$RUNNER_TEMP/build_certificate.p12" >> "$GITHUB_OUTPUT"
-          echo "profile=$RUNNER_TEMP/profile.mobileprovision" >> "$GITHUB_OUTPUT"
-          echo "profile_install=$HOME/Library/MobileDevice/Provisioning Profiles/${{ secrets.BUILD_MOBILEPROVISION_UUID }}.mobileprovision" >> "$GITHUB_OUTPUT"
-          echo "export_options=$RUNNER_TEMP/export-options.plist" >> "$GITHUB_OUTPUT"
-
-      - name: Write Apple certificates and provisioning profile
-        shell: bash
-        run: |
-          echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > "${{ steps.paths.outputs.certificate }}"
-          echo "$BUILD_MOBILEPROVISION_BASE64" | base64 --decode > "${{ steps.paths.outputs.profile }}"
-          mkdir -p "$(dirname "${{ steps.paths.outputs.profile_install }}")"
-          cp "${{ steps.paths.outputs.profile }}" "${{ steps.paths.outputs.profile_install }}"
-          chmod 600 "${{ steps.paths.outputs.certificate }}" "${{ steps.paths.outputs.profile }}"
-        env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          BUILD_MOBILEPROVISION_BASE64: ${{ secrets.BUILD_MOBILEPROVISION_BASE64 }}
-
-      - name: Import Apple distribution certificate
-        uses: apple-actions/import-codesign-certs@v3
-        with:
-          p12-file-base64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          p12-password: ${{ secrets.P12_PASSWORD }}
+          echo "ipa=$RUNNER_TEMP/Herdr-unsigned.ipa" >> "$GITHUB_OUTPUT"
 
       - name: Resolve workspace and scheme
         id: ios-target
@@ -235,7 +108,87 @@ jobs:
           echo "workspace=$workspace" >> "$GITHUB_OUTPUT"
           echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
 
-      - name: Archive signed app
+      - name: Resolve SwiftPM dependencies and patch if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -o pipefail
+
+          WORKSPACE="${{ steps.ios-target.outputs.workspace }}"
+          SCHEME="${{ steps.ios-target.outputs.scheme }}"
+          TARGET_SWIFT_TOOLS_VERSION="6.0"
+          TARGET_MANIFEST="Package.swift"
+          RESOLVE_LOG="$RUNNER_TEMP/swiftpm-resolve.log"
+
+          manifest_count=0
+          updated=0
+
+          scan_manifests() {
+            local root="$1"
+            if [ ! -d "$root" ]; then
+              return 0
+            fi
+            while IFS= read -r -d '' manifest; do
+              manifest_count=$((manifest_count + 1))
+              if grep -Eq '^[[:space:]]*//[[:space:]]*swift-tools-version:[[:space:]]*6\.[0-9]+(\.[0-9]+)?$' "$manifest" && \
+                 ! grep -q "// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}" "$manifest"; then
+                perl -0pi -e "s#// swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?#// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}#g" "$manifest"
+                echo "Patched $manifest"
+                updated=1
+              fi
+            done < <(find -L "$root" -type f -name "$TARGET_MANIFEST" -print0)
+          }
+
+          patch_swiftpm_manifests() {
+            scan_manifests "node_modules"
+            scan_manifests "ios"
+            scan_manifests "build/SourcePackages/checkouts"
+            scan_manifests "build/DerivedData/SourcePackages/checkouts"
+            if [ -d "$HOME/Library/Developer/Xcode/DerivedData" ]; then
+              while IFS= read -r -d '' checkout_root; do
+                scan_manifests "$checkout_root"
+              done < <(find -L "$HOME/Library/Developer/Xcode/DerivedData" -type d -path '*/SourcePackages/checkouts' -print0 2>/dev/null)
+            fi
+          }
+
+          run_resolve() {
+            xcodebuild -resolvePackageDependencies \
+              -workspace "$WORKSPACE" \
+              -scheme "$SCHEME" \
+              -derivedDataPath "$PWD/build/DerivedData" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGN_IDENTITY= \
+              >"$RESOLVE_LOG" 2>&1
+          }
+
+          patch_swiftpm_manifests
+          if [ "$updated" -eq 0 ]; then
+            echo "No Package.swift manifest versions were updated before initial resolve."
+          fi
+
+          echo "Running initial SwiftPM resolve pass (with no-sign config)."
+          if ! run_resolve; then
+            if ! grep -Eq 'package .* is using Swift tools version 6\.2\.0' "$RESOLVE_LOG"; then
+              cat "$RESOLVE_LOG" >&2
+              exit 1
+            fi
+
+            echo "Known SwiftPM tools-version mismatch detected, patching Package.swift manifests and retrying."
+            manifest_count=0
+            updated=0
+            patch_swiftpm_manifests
+            if [ "$updated" -eq 0 ]; then
+              echo "No matching Package.swift manifests were patched."
+            fi
+
+            if ! run_resolve; then
+              cat "$RESOLVE_LOG" >&2
+              exit 1
+            fi
+          fi
+
+      - name: Archive unsigned app
         shell: bash
         run: |
           set -euo pipefail
@@ -248,77 +201,33 @@ jobs:
             -derivedDataPath "$PWD/build/DerivedData" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY= \
             clean archive
 
-      - name: Prepare export options
-        shell: bash
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          EXPORT_METHOD: ${{ inputs.export_method }}
-          HERDR_IOS_BUNDLE_ID: ${{ secrets.HERDR_IOS_BUNDLE_ID }}
-          BUILD_SIGNING_IDENTITY: ${{ secrets.BUILD_SIGNING_IDENTITY }}
-          BUILD_PROVISIONING_PROFILE_NAME: ${{ secrets.BUILD_PROVISIONING_PROFILE_NAME }}
-        run: |
-          set -euo pipefail
-          cat > "${{ steps.paths.outputs.export_options }}" <<'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>destination</key>
-            <string>export</string>
-            <key>method</key>
-            <string>app-store-connect</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>stripSwiftSymbols</key>
-            <true/>
-            <key>signingCertificate</key>
-            <string>__SIGNING_IDENTITY__</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>__BUNDLE_ID__</key>
-              <string>__PROFILE_NAME__</string>
-            </dict>
-            <key>teamID</key>
-            <string>__TEAM_ID__</string>
-          </dict>
-          </plist>
-          PLIST
-
-          /usr/libexec/PlistBuddy -c "Set :method $EXPORT_METHOD" "${{ steps.paths.outputs.export_options }}"
-          /usr/libexec/PlistBuddy -c "Set :signingStyle manual" "${{ steps.paths.outputs.export_options }}"
-          /usr/libexec/PlistBuddy -c "Set :signingCertificate $BUILD_SIGNING_IDENTITY" "${{ steps.paths.outputs.export_options }}"
-          /usr/libexec/PlistBuddy -c "Set :provisioningProfiles dict" "${{ steps.paths.outputs.export_options }}"
-          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:$HERDR_IOS_BUNDLE_ID string $BUILD_PROVISIONING_PROFILE_NAME" "${{ steps.paths.outputs.export_options }}"
-          /usr/libexec/PlistBuddy -c "Set :teamID $APPLE_TEAM_ID" "${{ steps.paths.outputs.export_options }}"
-
-      - name: Export IPA
-        shell: bash
-        env:
-          EXPO_NEW_ARCH_ENABLED: "1"
-          RCT_NEW_ARCH_ENABLED: "1"
-        run: |
-          set -euo pipefail
-          mkdir -p "${{ steps.paths.outputs.export }}"
-          xcodebuild -exportArchive \
-            -archivePath "${{ steps.paths.outputs.archive }}" \
-            -exportPath "${{ steps.paths.outputs.export }}" \
-            -exportOptionsPlist "${{ steps.paths.outputs.export_options }}"
-
-      - name: Locate signed IPA
+      - name: Create unsigned IPA
         id: ipa
         shell: bash
         run: |
-          ipa_path="$(find '${{ steps.paths.outputs.export }}' -maxdepth 2 -name '*.ipa' -print -quit)"
-          if [ -z "$ipa_path" ]; then
-            echo "No signed ipa found in ${{ steps.paths.outputs.export }}" >&2
+          set -euo pipefail
+          app_path="$(find "${{ steps.paths.outputs.archive }}/Products/Applications" -maxdepth 2 -type d -name '*.app' -print -quit)"
+          if [ -z "$app_path" ]; then
+            app_path="$(find "${{ steps.paths.outputs.archive }}" -maxdepth 6 -type d -name '*.app' -print -quit)"
+          fi
+          if [ -z "$app_path" ]; then
+            echo "No .app bundle was produced in the archive." >&2
             exit 1
           fi
-          echo "path=$ipa_path" >> "$GITHUB_OUTPUT"
+
+          unsigned_payload="$(mktemp -d)"
+          mkdir -p "$unsigned_payload/Payload"
+          cp -R "$app_path" "$unsigned_payload/Payload/"
+          (cd "$unsigned_payload" && zip -qry "${{ steps.paths.outputs.ipa }}" Payload)
+          echo "path=${{ steps.paths.outputs.ipa }}" >> "$GITHUB_OUTPUT"
 
       - name: Upload to BrowserStack
         id: browserstack
+        if: ${{ env.BROWSERSTACK_USERNAME != '' && env.BROWSERSTACK_ACCESS_KEY != '' }}
+        continue-on-error: true
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
@@ -328,7 +237,7 @@ jobs:
           payload=$(
             cat <<'JSON'
             {
-              "name": "herdr-signed-${{ github.run_number }}",
+              "name": "herdr-unsigned-${{ github.run_number }}",
               "custom_id": "herdr-${{ github.run_id }}"
             }
             JSON
