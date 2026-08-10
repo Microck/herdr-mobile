@@ -274,10 +274,10 @@ jobs:
             fi
 
             while IFS= read -r -d '' file; do
-              perl -0pi -e 's/^(\s*(?:public\s+)?(?:final\s+)?class\s+JavaScriptValue:\s*)(?:@unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-              perl -0pi -e 's/^(\s*(?:public\s+)?(?:final\s+)?class\s+HostFunctionContext:\s*)(?:@unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-              perl -0pi -e 's/^(\s*(?:public\s+)?(?:final\s+)?class\s+HostObjectContext:\s*)(?:@unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-              perl -0pi -e 's/^(\s*(?:public\s+)?(?:final\s+)?class\s+JavaScriptRuntimeExecutor:\s*JavaScriptExecutor,)(?:\s*@unchecked)?\s*Sendable/$1 @unchecked Sendable/mg' "$file"
+              perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptValue:\s*)(?:@?unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
+              perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostFunctionContext:\s*)(?:@?unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
+              perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostObjectContext:\s*)(?:@?unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
+              perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptRuntimeExecutor:\s*JavaScriptExecutor,)(?:\s*@?unchecked)?\s*Sendable/$1 @unchecked Sendable/mg' "$file"
             done < <(find "$sources_dir" -type f \( -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0)
           done < <(find . -type d \( -path "*/expo-modules-jsi/apple/Sources" -o -path "*/expo-modules-jsi@*/apple/Sources" \) -print0)
 
@@ -288,10 +288,10 @@ jobs:
           patched=0
 
           while IFS= read -r -d '' file; do
-            perl -pi -e 'if (/^\s*(?:public\s+)?(?:final\s+)?class\s+JavaScriptValue:\s*/) { s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
-            perl -pi -e 'if (/^\s*(?:public\s+)?(?:final\s+)?class\s+HostFunctionContext:\s*/) { s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
-            perl -pi -e 'if (/^\s*(?:public\s+)?(?:final\s+)?class\s+HostObjectContext:\s*/) { s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
-            perl -pi -e 'if (/^\s*(?:public\s+)?(?:final\s+)?class\s+JavaScriptRuntimeExecutor:\s*JavaScriptExecutor,/) { s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
+            perl -pi -e 'if (/^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptValue:\s*/) { s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
+            perl -pi -e 'if (/^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostFunctionContext:\s*/) { s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
+            perl -pi -e 'if (/^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostObjectContext:\s*/) { s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
+            perl -pi -e 'if (/^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptRuntimeExecutor:\s*JavaScriptExecutor,/) { s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
             patched=$((patched + 1))
           done < <(
             {
