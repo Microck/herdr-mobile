@@ -19,3 +19,11 @@ index a0e3e24d6070c5ec0a220af3cb56fe3373fe1968..d610cc38dd8dee363ea2f1822aea0c4a
      let hostObject = expo.HostObject.makeObject(pointee, consume callbacks)
  
      return JavaScriptObject(self, hostObject)
+
+diff --git a/package/apple/Package.swift b/package/apple/Package.swift
+index aafdf8f..d8a7b5f 100644
+--- a/package/apple/Package.swift
++++ b/package/apple/Package.swift
+@@ -1,4 +1,4 @@
+-// swift-tools-version: 6.2
++// swift-tools-version: 6.0

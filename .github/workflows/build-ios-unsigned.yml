@@ -95,20 +95,35 @@ jobs:
         run: |
           set -euo pipefail
           TARGET_SWIFT_TOOLS_VERSION="6.0"
+          TARGET_MANIFEST="Package.swift"
           if ! echo "$TARGET_SWIFT_TOOLS_VERSION" | grep -qE '^[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
             echo "Invalid TARGET_SWIFT_TOOLS_VERSION: $TARGET_SWIFT_TOOLS_VERSION" >&2
             exit 1
           fi
           echo "Pinning selected SwiftPM package tools versions to $TARGET_SWIFT_TOOLS_VERSION"
           updated=0
+          manifest_count=0
           while IFS= read -r -d '' manifest; do
+            manifest_count=$((manifest_count + 1))
             if grep -Eq '(^|//) swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$' "$manifest" && \
+               echo "$manifest" | grep -q 'expo-modules-jsi' && \
                ! grep -q "// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}" "$manifest"; then
               perl -0pi -e "s#// swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?#// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}#g" "$manifest"
               echo "Patched $manifest"
               updated=1
             fi
-          done < <(find node_modules -type f -name Package.swift -print0)
+          done < <(find node_modules -L -type f -name "$TARGET_MANIFEST" -print0)
+          if [ "$manifest_count" -eq 0 ]; then
+            echo "No Package.swift manifests were found under node_modules."
+          fi
+          if [ -f ios/build/generated/ios/$TARGET_MANIFEST ]; then
+            if grep -Eq '(^|//) swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$' ios/build/generated/ios/$TARGET_MANIFEST && \
+               ! grep -q "// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}" ios/build/generated/ios/$TARGET_MANIFEST; then
+              perl -0pi -e "s#// swift-tools-version:\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+)?#// swift-tools-version: ${TARGET_SWIFT_TOOLS_VERSION}#g" ios/build/generated/ios/$TARGET_MANIFEST
+              echo "Patched ios/build/generated/ios/$TARGET_MANIFEST"
+              updated=1
+            fi
+          fi
           if [ "$updated" -eq 0 ]; then
             echo "No matching Package.swift manifests were patched"
           fi
