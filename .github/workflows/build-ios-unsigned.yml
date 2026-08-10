@@ -23,8 +23,8 @@ jobs:
     timeout-minutes: 90
     env:
       DEVELOPER_DIR: /Applications/Xcode_16.1.app
-      EXPO_NEW_ARCH_ENABLED: "0"
-      RCT_NEW_ARCH_ENABLED: "0"
+      EXPO_NEW_ARCH_ENABLED: "1"
+      RCT_NEW_ARCH_ENABLED: "1"
       EXPO_PUBLIC_HERDR_URL: ${{ inputs.relay_url }}
       EXPO_NO_GIT_STATUS: "1"
       HERDR_IOS_BUNDLE_ID: ${{ secrets.HERDR_IOS_BUNDLE_ID }}
@@ -68,14 +68,14 @@ jobs:
 
       - name: Generate iOS project
         env:
-          EXPO_NEW_ARCH_ENABLED: "0"
-          RCT_NEW_ARCH_ENABLED: "0"
+          EXPO_NEW_ARCH_ENABLED: "1"
+          RCT_NEW_ARCH_ENABLED: "1"
         run: pnpm exec expo prebuild --clean --platform ios
 
       - name: Install CocoaPods dependencies
         env:
-          EXPO_NEW_ARCH_ENABLED: "0"
-          RCT_NEW_ARCH_ENABLED: "0"
+          EXPO_NEW_ARCH_ENABLED: "1"
+          RCT_NEW_ARCH_ENABLED: "1"
         run: pod install --project-directory=ios --deployment
 
       - name: Verify signing secrets
@@ -180,8 +180,8 @@ jobs:
       - name: Archive signed app
         shell: bash
         env:
-          EXPO_NEW_ARCH_ENABLED: "0"
-          RCT_NEW_ARCH_ENABLED: "0"
+          EXPO_NEW_ARCH_ENABLED: "1"
+          RCT_NEW_ARCH_ENABLED: "1"
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           HERDR_IOS_BUNDLE_ID: ${{ secrets.HERDR_IOS_BUNDLE_ID }}
           BUILD_SIGNING_IDENTITY: ${{ secrets.BUILD_SIGNING_IDENTITY }}
@@ -248,8 +248,8 @@ jobs:
       - name: Export IPA
         shell: bash
         env:
-          EXPO_NEW_ARCH_ENABLED: "0"
-          RCT_NEW_ARCH_ENABLED: "0"
+          EXPO_NEW_ARCH_ENABLED: "1"
+          RCT_NEW_ARCH_ENABLED: "1"
         run: |
           set -euo pipefail
           mkdir -p "${{ steps.paths.outputs.export }}"
