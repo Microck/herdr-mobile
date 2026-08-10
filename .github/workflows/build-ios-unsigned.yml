@@ -13,6 +13,9 @@ on:
         required: false
         type: string
         default: ad-hoc
+  push:
+    branches:
+      - chore/manual-sign-herdr-build
 
 permissions:
   contents: read
@@ -198,12 +201,6 @@ jobs:
 
       - name: Archive signed app
         shell: bash
-        env:
-          EXPO_NEW_ARCH_ENABLED: "1"
-          RCT_NEW_ARCH_ENABLED: "1"
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          HERDR_IOS_BUNDLE_ID: ${{ secrets.HERDR_IOS_BUNDLE_ID }}
-          BUILD_SIGNING_IDENTITY: ${{ secrets.BUILD_SIGNING_IDENTITY }}
         run: |
           set -euo pipefail
           xcodebuild archive \
@@ -213,9 +210,6 @@ jobs:
             -destination "generic/platform=iOS" \
             -archivePath "${{ steps.paths.outputs.archive }}" \
             -derivedDataPath "$PWD/build/DerivedData" \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_IDENTITY="$BUILD_SIGNING_IDENTITY" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             clean archive
