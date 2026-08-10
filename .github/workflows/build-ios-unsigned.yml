@@ -22,9 +22,21 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 90
     env:
-      DEVELOPER_DIR: /Applications/Xcode_16.1.app
+      DEVELOPER_DIR: /Applications/Xcode_16.2.app
+      EXPO_NEW_ARCH_ENABLED: "1"
+      RCT_NEW_ARCH_ENABLED: "1"
       EXPO_PUBLIC_HERDR_URL: ${{ inputs.relay_url }}
       EXPO_NO_GIT_STATUS: "1"
+      HERDR_IOS_BUNDLE_ID: ${{ secrets.HERDR_IOS_BUNDLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+      BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+      BUILD_MOBILEPROVISION_BASE64: ${{ secrets.BUILD_MOBILEPROVISION_BASE64 }}
+      BUILD_MOBILEPROVISION_UUID: ${{ secrets.BUILD_MOBILEPROVISION_UUID }}
+      BUILD_PROVISIONING_PROFILE_NAME: ${{ secrets.BUILD_PROVISIONING_PROFILE_NAME }}
+      BUILD_SIGNING_IDENTITY: ${{ secrets.BUILD_SIGNING_IDENTITY }}
+      P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
 
     steps:
       - name: Check out source
@@ -45,7 +57,7 @@ jobs:
       - name: Set up Xcode 16.1
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "16.1"
+          xcode-version: "16.2"
 
       - name: Show Apple toolchain
         run: |
@@ -57,19 +69,44 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate iOS project
+        env:
+          EXPO_NEW_ARCH_ENABLED: "1"
+          RCT_NEW_ARCH_ENABLED: "1"
         run: pnpm exec expo prebuild --clean --platform ios
 
+      - name: Pin Clerk iOS SDK to Swift 5.10 compatible version
+        env:
+          TARGET_CLERK_IOS_VERSION: "1.1.0"
+        run: |
+          set -euo pipefail
+          updated=0
+          while IFS= read -r -d '' spec; do
+            if grep -q "clerk_ios_version" "$spec"; then
+              perl -0777 -i -pe "s/clerk_ios_version\\s*=\\s*'[^']+'/clerk_ios_version = '$TARGET_CLERK_IOS_VERSION'/g" "$spec"
+              echo "Patched $spec"
+              updated=1
+            fi
+          done < <(find node_modules -name ClerkExpo.podspec -print0)
+          if [ "$updated" -eq 0 ]; then
+            echo "No ClerkExpo podspec files were patched"
+          fi
+
       - name: Install CocoaPods dependencies
+        env:
+          EXPO_NEW_ARCH_ENABLED: "1"
+          RCT_NEW_ARCH_ENABLED: "1"
         run: pod install --project-directory=ios --deployment
 
       - name: Verify signing secrets
         shell: bash
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          HERDR_IOS_BUNDLE_ID: ${{ secrets.HERDR_IOS_BUNDLE_ID }}
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          BUILD_MOBILEPROVISION_BASE64: ${{ secrets.BUILD_MOBILEPROVISION_BASE64 }}
+          BUILD_MOBILEPROVISION_UUID: ${{ secrets.BUILD_MOBILEPROVISION_UUID }}
+          BUILD_PROVISIONING_PROFILE_NAME: ${{ secrets.BUILD_PROVISIONING_PROFILE_NAME }}
+          BUILD_SIGNING_IDENTITY: ${{ secrets.BUILD_SIGNING_IDENTITY }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
         run: |
           set -euo pipefail
@@ -79,20 +116,28 @@ jobs:
             echo "Missing APPLE_TEAM_ID." >&2
             missing=1
           fi
-          if [ -z "$APP_STORE_CONNECT_ISSUER_ID" ]; then
-            echo "Missing APP_STORE_CONNECT_ISSUER_ID." >&2
-            missing=1
-          fi
-          if [ -z "$APP_STORE_CONNECT_KEY_ID" ]; then
-            echo "Missing APP_STORE_CONNECT_KEY_ID." >&2
-            missing=1
-          fi
-          if [ -z "$APP_STORE_CONNECT_PRIVATE_KEY" ]; then
-            echo "Missing APP_STORE_CONNECT_PRIVATE_KEY." >&2
+          if [ -z "$HERDR_IOS_BUNDLE_ID" ]; then
+            echo "Missing HERDR_IOS_BUNDLE_ID." >&2
             missing=1
           fi
           if [ -z "$BUILD_CERTIFICATE_BASE64" ]; then
             echo "Missing BUILD_CERTIFICATE_BASE64." >&2
+            missing=1
+          fi
+          if [ -z "$BUILD_MOBILEPROVISION_BASE64" ]; then
+            echo "Missing BUILD_MOBILEPROVISION_BASE64." >&2
+            missing=1
+          fi
+          if [ -z "$BUILD_MOBILEPROVISION_UUID" ]; then
+            echo "Missing BUILD_MOBILEPROVISION_UUID." >&2
+            missing=1
+          fi
+          if [ -z "$BUILD_PROVISIONING_PROFILE_NAME" ]; then
+            echo "Missing BUILD_PROVISIONING_PROFILE_NAME." >&2
+            missing=1
+          fi
+          if [ -z "$BUILD_SIGNING_IDENTITY" ]; then
+            echo "Missing BUILD_SIGNING_IDENTITY." >&2
             missing=1
           fi
           if [ -z "$P12_PASSWORD" ]; then
@@ -111,17 +156,22 @@ jobs:
         run: |
           echo "archive=$RUNNER_TEMP/Herdr.xcarchive" >> "$GITHUB_OUTPUT"
           echo "export=$RUNNER_TEMP/herdr-export" >> "$GITHUB_OUTPUT"
-          echo "api_key=$RUNNER_TEMP/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8" >> "$GITHUB_OUTPUT"
+          echo "certificate=$RUNNER_TEMP/build_certificate.p12" >> "$GITHUB_OUTPUT"
+          echo "profile=$RUNNER_TEMP/profile.mobileprovision" >> "$GITHUB_OUTPUT"
+          echo "profile_install=$HOME/Library/MobileDevice/Provisioning Profiles/${{ secrets.BUILD_MOBILEPROVISION_UUID }}.mobileprovision" >> "$GITHUB_OUTPUT"
           echo "export_options=$RUNNER_TEMP/export-options.plist" >> "$GITHUB_OUTPUT"
 
-      - name: Write App Store Connect API key
+      - name: Write Apple certificates and provisioning profile
         shell: bash
         run: |
-          mkdir -p "$(dirname '${{ steps.paths.outputs.api_key }}')"
-          cat > "${{ steps.paths.outputs.api_key }}" <<'KEYEOF'
-          ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
-          KEYEOF
-          chmod 600 "${{ steps.paths.outputs.api_key }}"
+          echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > "${{ steps.paths.outputs.certificate }}"
+          echo "$BUILD_MOBILEPROVISION_BASE64" | base64 --decode > "${{ steps.paths.outputs.profile }}"
+          mkdir -p "$(dirname "${{ steps.paths.outputs.profile_install }}")"
+          cp "${{ steps.paths.outputs.profile }}" "${{ steps.paths.outputs.profile_install }}"
+          chmod 600 "${{ steps.paths.outputs.certificate }}" "${{ steps.paths.outputs.profile }}"
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          BUILD_MOBILEPROVISION_BASE64: ${{ secrets.BUILD_MOBILEPROVISION_BASE64 }}
 
       - name: Import Apple distribution certificate
         uses: apple-actions/import-codesign-certs@v3
@@ -148,10 +198,6 @@ jobs:
 
       - name: Archive signed app
         shell: bash
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           set -euo pipefail
           xcodebuild archive \
@@ -161,11 +207,8 @@ jobs:
             -destination "generic/platform=iOS" \
             -archivePath "${{ steps.paths.outputs.archive }}" \
             -derivedDataPath "$PWD/build/DerivedData" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "${{ steps.paths.outputs.api_key }}" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
             clean archive
 
       - name: Prepare export options
@@ -173,6 +216,9 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           EXPORT_METHOD: ${{ inputs.export_method }}
+          HERDR_IOS_BUNDLE_ID: ${{ secrets.HERDR_IOS_BUNDLE_ID }}
+          BUILD_SIGNING_IDENTITY: ${{ secrets.BUILD_SIGNING_IDENTITY }}
+          BUILD_PROVISIONING_PROFILE_NAME: ${{ secrets.BUILD_PROVISIONING_PROFILE_NAME }}
         run: |
           set -euo pipefail
           cat > "${{ steps.paths.outputs.export_options }}" <<'PLIST'
@@ -185,32 +231,41 @@ jobs:
             <key>method</key>
             <string>app-store-connect</string>
             <key>signingStyle</key>
-            <string>automatic</string>
+            <string>manual</string>
             <key>stripSwiftSymbols</key>
             <true/>
+            <key>signingCertificate</key>
+            <string>__SIGNING_IDENTITY__</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>__BUNDLE_ID__</key>
+              <string>__PROFILE_NAME__</string>
+            </dict>
+            <key>teamID</key>
+            <string>__TEAM_ID__</string>
           </dict>
           </plist>
           PLIST
 
           /usr/libexec/PlistBuddy -c "Set :method $EXPORT_METHOD" "${{ steps.paths.outputs.export_options }}"
-          /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "${{ steps.paths.outputs.export_options }}"
+          /usr/libexec/PlistBuddy -c "Set :signingStyle manual" "${{ steps.paths.outputs.export_options }}"
+          /usr/libexec/PlistBuddy -c "Set :signingCertificate $BUILD_SIGNING_IDENTITY" "${{ steps.paths.outputs.export_options }}"
+          /usr/libexec/PlistBuddy -c "Set :provisioningProfiles dict" "${{ steps.paths.outputs.export_options }}"
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:$HERDR_IOS_BUNDLE_ID string $BUILD_PROVISIONING_PROFILE_NAME" "${{ steps.paths.outputs.export_options }}"
+          /usr/libexec/PlistBuddy -c "Set :teamID $APPLE_TEAM_ID" "${{ steps.paths.outputs.export_options }}"
 
       - name: Export IPA
         shell: bash
         env:
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          EXPO_NEW_ARCH_ENABLED: "1"
+          RCT_NEW_ARCH_ENABLED: "1"
         run: |
           set -euo pipefail
           mkdir -p "${{ steps.paths.outputs.export }}"
           xcodebuild -exportArchive \
             -archivePath "${{ steps.paths.outputs.archive }}" \
             -exportPath "${{ steps.paths.outputs.export }}" \
-            -exportOptionsPlist "${{ steps.paths.outputs.export_options }}" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "${{ steps.paths.outputs.api_key }}" \
-            -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
-            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+            -exportOptionsPlist "${{ steps.paths.outputs.export_options }}"
 
       - name: Locate signed IPA
         id: ipa
@@ -222,6 +277,38 @@ jobs:
             exit 1
           fi
           echo "path=$ipa_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to BrowserStack
+        id: browserstack
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+
+          payload=$(
+            cat <<'JSON'
+            {
+              "name": "herdr-signed-${{ github.run_number }}",
+              "custom_id": "herdr-${{ github.run_id }}"
+            }
+JSON
+          )
+
+          upload_response="$(curl -sS -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/upload" \
+            -F "file=@${{ steps.ipa.outputs.path }}" \
+            -F "data=$payload")"
+
+          echo "$upload_response"
+
+          app_url="$(printf '%s' "$upload_response" | node -e "const fs=require('fs'); let d=''; process.stdin.on('data',chunk=>d+=chunk); process.stdin.on('end',()=>{try{const p=JSON.parse(d); const appUrl=p.app_url||p.appUrl||''; if(!appUrl){process.exit(1);} console.log(appUrl);}catch(e){process.exit(1);}});")"
+          if [ -z "$app_url" ]; then
+            echo "BrowserStack upload response did not include app_url." >&2
+            exit 1
+          fi
+
+          echo "app_url=$app_url" >> "$GITHUB_OUTPUT"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
