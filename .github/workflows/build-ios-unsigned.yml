@@ -255,6 +255,25 @@ jobs:
             fi
           fi
 
+      - name: Patch Expo Modules JSI for Swift 6 compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r -d '' sources_dir; do
+            if [ ! -d "$sources_dir" ]; then
+              continue
+            fi
+
+            echo "Patching Expo Modules JSI sources at $sources_dir"
+            find "$sources_dir" -type f -name '*.swift' -print0 | xargs -0 perl -pi -e 's/\bweak let\b/weak var/g'
+
+            runtime_file="$sources_dir/Runtime/JavaScriptRuntime.swift"
+            if [ -f "$runtime_file" ]; then
+              perl -0pi -e 's/(consuming JavaScriptValuesBuffer),([\r\n\s]*\)\s*async throws)/$1$2/g' "$runtime_file"
+            fi
+          done < <(find . -type d \( -path "*/expo-modules-jsi/apple/Sources" -o -path "*/expo-modules-jsi@*/apple/Sources" \) -print0)
+
       - name: Archive unsigned app
         shell: bash
         run: |
