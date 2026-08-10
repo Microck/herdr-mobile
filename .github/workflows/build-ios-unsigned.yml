@@ -81,10 +81,17 @@ jobs:
             echo "Patched $jsi_file_count ExpoModulesJSI source files."
           fi
 
-          protocols_file=$(find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/ExpoModulesJSI/Protocols/JavaScriptType.swift')
-          if [ -f "$protocols_file" ]; then
-            perl -0pi -e 's/public protocol JavaScriptType:\s*Sendable,\s*~Copyable/public protocol JavaScriptType: ~Copyable/' "$protocols_file"
-            echo "Patched JavaScriptType protocol Sendable constraint."
+          protocol_files_count=0
+          while IFS= read -r -d '' file; do
+            perl -0pi -e 's/public protocol JavaScriptType:\s*Sendable,\s*~Copyable/public protocol JavaScriptType: ~Copyable/' "$file"
+            protocol_files_count=$((protocol_files_count + 1))
+          done < <(
+            find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*/Protocols/JavaScriptType.swift' -name 'JavaScriptType.swift' -print0
+          )
+          if [ "$protocol_files_count" -eq 0 ]; then
+            echo "No JavaScriptType.swift files found under ExpoModulesJSI protocol paths; skipping protocol patch."
+          else
+            echo "Patched $protocol_files_count JavaScriptType.swift protocol files."
           fi
 
           while IFS= read -r -d '' file; do
