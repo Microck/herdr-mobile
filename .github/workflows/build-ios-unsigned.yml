@@ -29,6 +29,8 @@ jobs:
       EXPO_NO_GIT_STATUS: "1"
       HERDR_IOS_BUNDLE_ID: ${{ secrets.HERDR_IOS_BUNDLE_ID }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
       BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
       BUILD_MOBILEPROVISION_BASE64: ${{ secrets.BUILD_MOBILEPROVISION_BASE64 }}
       BUILD_MOBILEPROVISION_UUID: ${{ secrets.BUILD_MOBILEPROVISION_UUID }}
@@ -202,7 +204,6 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           HERDR_IOS_BUNDLE_ID: ${{ secrets.HERDR_IOS_BUNDLE_ID }}
           BUILD_SIGNING_IDENTITY: ${{ secrets.BUILD_SIGNING_IDENTITY }}
-          BUILD_PROVISIONING_PROFILE_NAME: ${{ secrets.BUILD_PROVISIONING_PROFILE_NAME }}
         run: |
           set -euo pipefail
           xcodebuild archive \
@@ -215,8 +216,8 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_IDENTITY="$BUILD_SIGNING_IDENTITY" \
-            PROVISIONING_PROFILE_SPECIFIER="$BUILD_PROVISIONING_PROFILE_NAME" \
-            PRODUCT_BUNDLE_IDENTIFIER="$HERDR_IOS_BUNDLE_ID" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
             clean archive
 
       - name: Prepare export options
@@ -285,6 +286,38 @@ jobs:
             exit 1
           fi
           echo "path=$ipa_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to BrowserStack
+        id: browserstack
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+
+          payload=$(
+            cat <<'JSON'
+            {
+              "name": "herdr-signed-${{ github.run_number }}",
+              "custom_id": "herdr-${{ github.run_id }}"
+            }
+JSON
+          )
+
+          upload_response="$(curl -sS -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/upload" \
+            -F "file=@${{ steps.ipa.outputs.path }}" \
+            -F "data=$payload")"
+
+          echo "$upload_response"
+
+          app_url="$(printf '%s' "$upload_response" | node -e "const fs=require('fs'); let d=''; process.stdin.on('data',chunk=>d+=chunk); process.stdin.on('end',()=>{try{const p=JSON.parse(d); const appUrl=p.app_url||p.appUrl||''; if(!appUrl){process.exit(1);} console.log(appUrl);}catch(e){process.exit(1);}});")"
+          if [ -z "$app_url" ]; then
+            echo "BrowserStack upload response did not include app_url." >&2
+            exit 1
+          fi
+
+          echo "app_url=$app_url" >> "$GITHUB_OUTPUT"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
