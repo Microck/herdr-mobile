@@ -111,8 +111,8 @@ jobs:
           while IFS= read -r -d '' file; do
             perl -0pi -e 's/internal final class HostFunctionContext:\s*Sendable/internal final class HostFunctionContext/' "$file"
             perl -0pi -e 's/internal final class HostObjectContext:\s*Sendable/internal final class HostObjectContext/' "$file"
-            perl -0pi -e 's/(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptRuntimeExecutor\s*:\s*JavaScriptExecutor,\s*)@?\s*(?:unchecked\s+)?Sendable/$1@unchecked Sendable/g' "$file"
-            perl -0pi -e 's/(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptValue\s*:\s*[^,\n]*,?\s*)@?\s*(?:unchecked\s+)?Sendable/$1@unchecked Sendable/g' "$file"
+            perl -0pi -e 's/(class\s+JavaScriptRuntimeExecutor\s*:\s*JavaScriptExecutor\s*),\s*(?:@?\s*unchecked\s+)?Sendable\b/$1 @unchecked Sendable/g' "$file"
+            perl -0pi -e 's/(class\s+JavaScriptValue\s*:[^{]*\s*),\s*(?:@?\s*unchecked\s+)?Sendable\b/$1 @unchecked Sendable/g' "$file"
           done < <(
             find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
           )
@@ -259,42 +259,24 @@ jobs:
         run: |
           set -euo pipefail
 
-          while IFS= read -r -d '' sources_dir; do
-            if [ ! -d "$sources_dir" ]; then
-              continue
-            fi
+          patch_sendable_file() {
+            local file="$1"
+            perl -0pi -e 's/(class\s+JavaScriptRuntimeExecutor\s*:\s*[^\n]*?)\b(?:@?\s*unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
+            perl -0pi -e 's/(^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptRuntimeExecutor\s*:\s*JavaScriptExecutor\s*),\s*(?:@?unchecked\s+)?Sendable\b/$1 @unchecked Sendable/g' "$file"
+            perl -0pi -e 's/(class\s+JavaScriptValue\s*:\s*[^\n]*?)\b(?:@?\s*unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
+            perl -0pi -e 's/(^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostFunctionContext\s*:\s*[^\n]*?)\b(?:@?\s*unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
+            perl -0pi -e 's/(^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostObjectContext\s*:\s*[^\n]*?)\b(?:@?\s*unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
+            perl -pi -e 's/\bweak let\b/weak var/g' "$file"
+          }
 
-            echo "Patching Expo Modules JSI sources at $sources_dir"
-            find "$sources_dir" -type f -name '*.swift' -print0 | xargs -0 perl -pi -e 's/\bweak let\b/weak var/g'
-
-            runtime_file="$sources_dir/Runtime/JavaScriptRuntime.swift"
-            if [ -f "$runtime_file" ]; then
-              perl -0pi -e 's/(consuming JavaScriptValuesBuffer),([\r\n\s]*\)\s*async throws)/$1$2/g' "$runtime_file"
-            fi
-
-            while IFS= read -r -d '' file; do
-              perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptValue\s*:\s*)(?:@?unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-              perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostFunctionContext\s*:\s*)(?:@?unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-              perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostObjectContext\s*:\s*)(?:@?unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-              perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptRuntimeExecutor\s*:\s*JavaScriptExecutor,\s*)(?:@?\s*(?:unchecked\s+)?)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-            done < <(find "$sources_dir" -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0)
-          done < <(find . -type d \( -path "*/expo-modules-jsi/apple/Sources" -o -path "*/expo-modules-jsi@*/apple/Sources" \) -print0)
-
-      - name: Force-patch Expo Modules JSI declarations in all resolved checkouts
-        shell: bash
-        run: |
-          set -euo pipefail
           patched=0
-
           while IFS= read -r -d '' file; do
-            perl -pi -e 'if (/^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptValue\s*:\s*/) { s/\@\s*Sendable/@unchecked Sendable/g; s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
-            perl -pi -e 'if (/^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostFunctionContext\s*:\s*/) { s/\@\s*Sendable/@unchecked Sendable/g; s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
-            perl -pi -e 'if (/^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostObjectContext\s*:\s*/) { s/\@\s*Sendable/@unchecked Sendable/g; s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
-            perl -pi -e 'if (/^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptRuntimeExecutor\s*:\s*JavaScriptExecutor,/) { s/\@\s*Sendable/@unchecked Sendable/g; s/\b@?unchecked\s+Sendable\b/@unchecked Sendable/g; s/\bSendable\b/@unchecked Sendable/g if !/@unchecked Sendable/ }' "$file"
+            patch_sendable_file "$file"
             patched=$((patched + 1))
           done < <(
             {
               find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
+              find . -type d \( -path "*/expo-modules-jsi/apple/Sources" -o -path "*/expo-modules-jsi@*/apple/Sources" \) -print0
               if [ -d "build/SourcePackages/checkouts" ]; then
                 find build/SourcePackages/checkouts -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0
               fi
@@ -308,9 +290,7 @@ jobs:
               fi
             } | sort -z -u
           )
-
-          echo "Force patched $patched ExpoModules JSI source files."
-
+          echo "Patched $patched Expo Modules JSI Swift source files."
       - name: Archive unsigned app
         shell: bash
         run: |
