@@ -13,9 +13,6 @@ on:
         required: false
         type: string
         default: ad-hoc
-  push:
-    branches:
-      - chore/manual-sign-herdr-build
 
 permissions:
   contents: read
