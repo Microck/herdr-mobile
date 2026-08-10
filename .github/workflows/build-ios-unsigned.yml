@@ -105,6 +105,8 @@ jobs:
             perl -0pi -e 's/internal final class HostFunctionContext:\s*Sendable/internal final class HostFunctionContext/' "$file"
             perl -0pi -e 's/internal final class HostObjectContext:\s*Sendable/internal final class HostObjectContext/' "$file"
             perl -0pi -e 's/class JavaScriptRuntimeExecutor:\s*JavaScriptExecutor,\s*@unchecked Sendable/class JavaScriptRuntimeExecutor: JavaScriptExecutor, @unchecked Sendable/' "$file"
+            perl -0pi -e 's/(class\s+JavaScriptValue:\s*[^,\n]*),\s*Sendable/$1, @unchecked Sendable/g' "$file"
+            perl -0pi -e 's/(class\s+JavaScriptValue:\s*)Sendable\b/$1@unchecked Sendable/g' "$file"
           done < <(
             find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
           )
