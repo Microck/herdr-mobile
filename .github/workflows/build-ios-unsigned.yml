@@ -66,56 +66,39 @@ jobs:
           set -euo pipefail
           set -o pipefail
 
-          jsi_file_count=0
-          fixed_runtime_count=0
+          patch_sendable_file() {
+            local file="$1"
+            perl -pi -e '
+              s/\bweak let\b/weak var/g;
+              s/,\s*\)/)/g;
+              s/public protocol JavaScriptType\s*:\s*Sendable\s*,\s*~Copyable/public protocol JavaScriptType: ~Copyable/;
+              s/(^\\s*(?:public|internal|fileprivate|private|open)?\\s*(?:final\\s+)?class\\s+JavaScriptRuntimeExecutor)\\s*:[^{]*\\{/$1: JavaScriptExecutor, @unchecked Sendable {/m;
+              s/(^\\s*(?:public|internal|fileprivate|private|open)?\\s*(?:final\\s+)?class\\s+HostFunctionContext)\s*:\s*Sendable/$1/ m;
+              s/(^\\s*(?:public|internal|fileprivate|private|open)?\\s*(?:final\\s+)?class\\s+HostObjectContext)\s*:\s*Sendable/$1/ m;
+            ' "$file"
+          }
+
+          patched=0
           while IFS= read -r -d '' file; do
-            perl -0pi -e 's/\bweak let /weak var /g; s/,\s*\)/)/g' "$file"
-            jsi_file_count=$((jsi_file_count + 1))
+            patch_sendable_file "$file"
+            patched=$((patched + 1))
           done < <(
-            find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
+            {
+              find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
+              if [ -d "build/SourcePackages/checkouts" ]; then
+                find build/SourcePackages/checkouts -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0
+              fi
+              if [ -d "build/DerivedData/SourcePackages/checkouts" ]; then
+                find build/DerivedData/SourcePackages/checkouts -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0
+              fi
+              if [ -d "$HOME/Library/Developer/Xcode/DerivedData" ]; then
+                while IFS= read -r -d '' checkout_root; do
+                  find "$checkout_root" -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0
+                done < <(find -L "$HOME/Library/Developer/Xcode/DerivedData" -type d -path '*/SourcePackages/checkouts' -print0 2>/dev/null)
+              fi
+            } | sort -z -u
           )
-
-          if [ "$jsi_file_count" -eq 0 ]; then
-            echo "No ExpoModulesJSI Swift source files found; skipping source patch."
-          else
-            echo "Patched $jsi_file_count ExpoModulesJSI source files."
-          fi
-
-          protocol_files_count=0
-          while IFS= read -r -d '' file; do
-            perl -0pi -e 's/public protocol JavaScriptType:\s*Sendable,\s*~Copyable/public protocol JavaScriptType: ~Copyable/' "$file"
-            protocol_files_count=$((protocol_files_count + 1))
-          done < <(
-            find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*/Protocols/JavaScriptType.swift' -name 'JavaScriptType.swift' -print0
-          )
-          if [ "$protocol_files_count" -eq 0 ]; then
-            echo "No JavaScriptType.swift files found under ExpoModulesJSI protocol paths; skipping protocol patch."
-          else
-            echo "Patched $protocol_files_count JavaScriptType.swift protocol files."
-          fi
-
-          while IFS= read -r -d '' file; do
-            if grep -q "weak let runtime" "$file"; then
-              fixed_runtime_count=$((fixed_runtime_count + 1))
-            fi
-          done < <(
-            find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
-          )
-
-          if [ "$fixed_runtime_count" -eq 0 ]; then
-            echo "No weak runtime properties were rewritten."
-          else
-            echo "Detected $fixed_runtime_count files with fixed weak runtime properties."
-          fi
-
-          while IFS= read -r -d '' file; do
-            perl -0pi -e 's/internal final class HostFunctionContext:\s*Sendable/internal final class HostFunctionContext/' "$file"
-            perl -0pi -e 's/internal final class HostObjectContext:\s*Sendable/internal final class HostObjectContext/' "$file"
-            perl -0pi -e 's/(class\s+JavaScriptRuntimeExecutor\s*:\s*JavaScriptExecutor\s*),\s*(?:@?\s*unchecked\s+)?Sendable\b/$1 @unchecked Sendable/g' "$file"
-            perl -0pi -e 's/(class\s+JavaScriptValue\s*:[^{]*\s*),\s*(?:@?\s*unchecked\s+)?Sendable\b/$1 @unchecked Sendable/g' "$file"
-          done < <(
-            find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
-          )
+          echo "Patched $patched ExpoModulesJSI Swift source files."
 
       - name: Pin Clerk iOS SDK to Swift 5.10 compatible version
         env:
@@ -254,43 +237,6 @@ jobs:
             fi
           fi
 
-      - name: Patch Expo Modules JSI for Swift 6 compatibility
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          patch_sendable_file() {
-            local file="$1"
-            perl -0pi -e 's/(class\s+JavaScriptRuntimeExecutor\s*:\s*[^\n]*?)\b(?:@?\s*unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-            perl -0pi -e 's/(^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptRuntimeExecutor\s*:\s*JavaScriptExecutor\s*),\s*(?:@?unchecked\s+)?Sendable\b/$1 @unchecked Sendable/g' "$file"
-            perl -0pi -e 's/(class\s+JavaScriptValue\s*:\s*[^\n]*?)\b(?:@?\s*unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-            perl -0pi -e 's/(^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostFunctionContext\s*:\s*[^\n]*?)\b(?:@?\s*unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-            perl -0pi -e 's/(^\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostObjectContext\s*:\s*[^\n]*?)\b(?:@?\s*unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-            perl -pi -e 's/\bweak let\b/weak var/g' "$file"
-          }
-
-          patched=0
-          while IFS= read -r -d '' file; do
-            patch_sendable_file "$file"
-            patched=$((patched + 1))
-          done < <(
-            {
-              find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
-              find . -type d \( -path "*/expo-modules-jsi/apple/Sources" -o -path "*/expo-modules-jsi@*/apple/Sources" \) -print0
-              if [ -d "build/SourcePackages/checkouts" ]; then
-                find build/SourcePackages/checkouts -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0
-              fi
-              if [ -d "build/DerivedData/SourcePackages/checkouts" ]; then
-                find build/DerivedData/SourcePackages/checkouts -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0
-              fi
-              if [ -d "$HOME/Library/Developer/Xcode/DerivedData" ]; then
-                while IFS= read -r -d '' checkout_root; do
-                  find "$checkout_root" -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0
-                done < <(find -L "$HOME/Library/Developer/Xcode/DerivedData" -type d -path '*/SourcePackages/checkouts' -print0 2>/dev/null)
-              fi
-            } | sort -z -u
-          )
-          echo "Patched $patched Expo Modules JSI Swift source files."
       - name: Archive unsigned app
         shell: bash
         run: |
