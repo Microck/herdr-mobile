@@ -111,8 +111,8 @@ jobs:
           while IFS= read -r -d '' file; do
             perl -0pi -e 's/internal final class HostFunctionContext:\s*Sendable/internal final class HostFunctionContext/' "$file"
             perl -0pi -e 's/internal final class HostObjectContext:\s*Sendable/internal final class HostObjectContext/' "$file"
-            perl -0pi -e 's/(class\s+JavaScriptRuntimeExecutor\s*:\s*JavaScriptExecutor,)\s*@?\s*(?:unchecked\s+)?Sendable/$1@unchecked Sendable/g' "$file"
-            perl -0pi -e 's/(class\s+JavaScriptValue\s*:\s*[^,\n]*),\s*@?\s*(?:unchecked\s+)?Sendable/$1, @unchecked Sendable/g' "$file"
+            perl -0pi -e 's/(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptRuntimeExecutor\s*:\s*JavaScriptExecutor,\s*)@?\s*(?:unchecked\s+)?Sendable/$1@unchecked Sendable/g' "$file"
+            perl -0pi -e 's/(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptValue\s*:\s*[^,\n]*,?\s*)@?\s*(?:unchecked\s+)?Sendable/$1@unchecked Sendable/g' "$file"
           done < <(
             find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
           )
@@ -276,8 +276,8 @@ jobs:
               perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptValue\s*:\s*)(?:@?unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
               perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostFunctionContext\s*:\s*)(?:@?unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
               perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+HostObjectContext\s*:\s*)(?:@?unchecked\s+)?Sendable\b/$1@unchecked Sendable/mg' "$file"
-              perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptRuntimeExecutor\s*:\s*JavaScriptExecutor,)(?:\s*@?\s*(?:unchecked\s+)?)?Sendable\b/$1 @unchecked Sendable/mg' "$file"
-            done < <(find "$sources_dir" -type f \( -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0)
+              perl -0pi -e 's/^(\s*(?:public|internal|fileprivate|private|open)?\s*(?:final\s+)?class\s+JavaScriptRuntimeExecutor\s*:\s*JavaScriptExecutor,\s*)(?:@?\s*(?:unchecked\s+)?)?Sendable\b/$1@unchecked Sendable/mg' "$file"
+            done < <(find "$sources_dir" -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0)
           done < <(find . -type d \( -path "*/expo-modules-jsi/apple/Sources" -o -path "*/expo-modules-jsi@*/apple/Sources" \) -print0)
 
       - name: Force-patch Expo Modules JSI declarations in all resolved checkouts
@@ -294,16 +294,16 @@ jobs:
             patched=$((patched + 1))
           done < <(
             {
-              find node_modules -type f \( -path '*/expo-modules-jsi*/apple/Sources/*' -a -name '*.swift' \) -print0
+              find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
               if [ -d "build/SourcePackages/checkouts" ]; then
-                find build/SourcePackages/checkouts -type f -path '*/Sources/ExpoModulesJSI/*' -name '*.swift' -print0
+                find build/SourcePackages/checkouts -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0
               fi
               if [ -d "build/DerivedData/SourcePackages/checkouts" ]; then
-                find build/DerivedData/SourcePackages/checkouts -type f -path '*/Sources/ExpoModulesJSI/*' -name '*.swift' -print0
+                find build/DerivedData/SourcePackages/checkouts -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0
               fi
               if [ -d "$HOME/Library/Developer/Xcode/DerivedData" ]; then
                 while IFS= read -r -d '' checkout_root; do
-                  find "$checkout_root" -type f -path '*/Sources/ExpoModulesJSI/*' -name '*.swift' -print0
+                  find "$checkout_root" -type f \( -name 'JavaScriptActor.swift' -o -name 'JavaScriptValue.swift' -o -name 'HostFunctionContext.swift' -o -name 'HostObjectContext.swift' -o -name 'JavaScriptRuntime.swift' \) -print0
                 done < <(find -L "$HOME/Library/Developer/Xcode/DerivedData" -type d -path '*/SourcePackages/checkouts' -print0 2>/dev/null)
               fi
             } | sort -z -u
