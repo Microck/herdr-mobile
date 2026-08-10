@@ -292,7 +292,7 @@ jobs:
               "name": "herdr-signed-${{ github.run_number }}",
               "custom_id": "herdr-${{ github.run_id }}"
             }
-JSON
+            JSON
           )
 
           upload_response="$(curl -sS -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
