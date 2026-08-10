@@ -69,9 +69,7 @@ jobs:
           jsi_file_count=0
           fixed_runtime_count=0
           while IFS= read -r -d '' file; do
-            perl -0pi -e 's/\bweak var runtime:/weak let runtime:/g' "$file"
-            perl -0pi -e 's/\bweak var runtime\s*:/weak let runtime:/' "$file"
-            perl -0pi -e 's/,\s*\)/)/g' "$file"
+            perl -0pi -e 's/\bweak let /weak var /g; s/,\s*\)/)/g' "$file"
             jsi_file_count=$((jsi_file_count + 1))
           done < <(
             find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
@@ -81,6 +79,12 @@ jobs:
             echo "No ExpoModulesJSI Swift source files found; skipping source patch."
           else
             echo "Patched $jsi_file_count ExpoModulesJSI source files."
+          fi
+
+          protocols_file=$(find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/ExpoModulesJSI/Protocols/JavaScriptType.swift')
+          if [ -f "$protocols_file" ]; then
+            perl -0pi -e 's/public protocol JavaScriptType:\s*Sendable,\s*~Copyable/public protocol JavaScriptType: ~Copyable/' "$protocols_file"
+            echo "Patched JavaScriptType protocol Sendable constraint."
           fi
 
           while IFS= read -r -d '' file; do
@@ -96,6 +100,14 @@ jobs:
           else
             echo "Detected $fixed_runtime_count files with fixed weak runtime properties."
           fi
+
+          while IFS= read -r -d '' file; do
+            perl -0pi -e 's/internal final class HostFunctionContext:\s*Sendable/internal final class HostFunctionContext/' "$file"
+            perl -0pi -e 's/internal final class HostObjectContext:\s*Sendable/internal final class HostObjectContext/' "$file"
+            perl -0pi -e 's/class JavaScriptRuntimeExecutor:\s*JavaScriptExecutor,\s*@unchecked Sendable/class JavaScriptRuntimeExecutor: JavaScriptExecutor, @unchecked Sendable/' "$file"
+          done < <(
+            find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
+          )
 
       - name: Pin Clerk iOS SDK to Swift 5.10 compatible version
         env:
