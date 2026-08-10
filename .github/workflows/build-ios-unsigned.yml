@@ -272,6 +272,15 @@ jobs:
             if [ -f "$runtime_file" ]; then
               perl -0pi -e 's/(consuming JavaScriptValuesBuffer),([\r\n\s]*\)\s*async throws)/$1$2/g' "$runtime_file"
             fi
+
+            while IFS= read -r -d '' file; do
+              perl -0pi -e 's/(?:public\s+)?(?:final\s+)?class\s+JavaScriptValue:\s*Sendable\b/$&/g' "$file"
+              perl -0pi -e 's/((?:public\s+)?(?:final\s+)?class\s+JavaScriptValue:\s*)Sendable\b/$1@unchecked Sendable/g' "$file"
+              perl -0pi -e 's/((?:public\s+)?(?:final\s+)?class\s+JavaScriptValue:\s*[^,\n]*),\s*Sendable/$1, @unchecked Sendable/g' "$file"
+              perl -0pi -e 's/((?:public\s+)?(?:final\s+)?class\s+HostFunctionContext:\s*)Sendable\b/$1@unchecked Sendable/g' "$file"
+              perl -0pi -e 's/((?:public\s+)?(?:final\s+)?class\s+HostObjectContext:\s*)Sendable\b/$1@unchecked Sendable/g' "$file"
+              perl -0pi -e 's/class JavaScriptRuntimeExecutor:\s*JavaScriptExecutor,\s*@unchecked Sendable/class JavaScriptRuntimeExecutor: JavaScriptExecutor, @unchecked Sendable/' "$file"
+            done < <(find "$sources_dir" -type f -name 'JavaScriptValue.swift' -o -name '*Context.swift' -o -name 'JavaScriptRuntime.swift' -print0)
           done < <(find . -type d \( -path "*/expo-modules-jsi/apple/Sources" -o -path "*/expo-modules-jsi@*/apple/Sources" \) -print0)
 
       - name: Archive unsigned app
