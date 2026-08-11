@@ -136,7 +136,7 @@ jobs:
               echo "No ClerkExpo podspec files were patched"
             fi
 
-            clerk_ios_local_path="$PWD/build/ClerkIOS"
+            clerk_ios_local_path="$RUNNER_TEMP/clerk-ios-$TARGET_CLERK_IOS_VERSION"
             rm -rf "$clerk_ios_local_path"
             git clone --depth 1 --branch "$TARGET_CLERK_IOS_VERSION" \
               https://github.com/clerk/clerk-ios.git "$clerk_ios_local_path"
