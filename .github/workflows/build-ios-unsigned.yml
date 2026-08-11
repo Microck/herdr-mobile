@@ -321,18 +321,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          xcodebuild \
-            -workspace "${{ steps.ios-target.outputs.workspace }}" \
-            -scheme "${{ steps.ios-target.outputs.scheme }}" \
-            -configuration Release \
-            -destination "generic/platform=iOS" \
-            -archivePath "${{ steps.paths.outputs.archive }}" \
-            -derivedDataPath "$PWD/build/DerivedData" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY= \
-            clean
-
           for package_file in node_modules/.pnpm/expo-modules-jsi@*/node_modules/expo-modules-jsi/apple/Package.swift; do
             [ -f "$package_file" ] || continue
             perl -pi -e 'if (/^[ \t]*\),/) { s/,[ \t]*\r?$// }' "$package_file"
