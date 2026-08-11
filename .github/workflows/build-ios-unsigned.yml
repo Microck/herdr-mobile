@@ -335,7 +335,7 @@ jobs:
 
           while IFS= read -r -d '' package_file; do
             perl -pi -e 'if (/^[ \t]*\),/) { s/,[ \t]*\r?$// }' "$package_file"
-          done < <(find . -type f -path '*/expo-modules-jsi*/apple/Package.swift' -print0)
+          done < <(find node_modules -path '*/expo-modules-jsi*/apple/Package.swift' -print0)
 
           xcodebuild archive \
             -workspace "${{ steps.ios-target.outputs.workspace }}" \
