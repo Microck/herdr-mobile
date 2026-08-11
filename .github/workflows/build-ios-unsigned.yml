@@ -76,8 +76,6 @@ jobs:
               s/public struct PropertyOptions: OptionSet, Sendable/public struct PropertyOptions: OptionSet, @unchecked Sendable/g;
               s/public struct PropertyOptions: OptionSet \{/public struct PropertyOptions: OptionSet, @unchecked Sendable {/g;
               s/(HostFunctionContext|HostObjectContext)\s*:\s*Sendable\b/$1/g;
-              s/(JavaScriptRuntimeExecutor)\s*:\s*JavaScriptExecutor,\s*@unchecked\s+Sendable\b/$1: JavaScriptExecutor/g;
-              s/,\s*@unchecked\s+Sendable//g;
             ' "$file"
           }
 
@@ -255,8 +253,6 @@ jobs:
               s/public struct PropertyOptions: OptionSet, Sendable/public struct PropertyOptions: OptionSet, \@unchecked Sendable/g;
               s/public struct PropertyOptions: OptionSet \{/public struct PropertyOptions: OptionSet, \@unchecked Sendable {/g;
               s/(HostFunctionContext|HostObjectContext)\s*:\s*Sendable\b/$1/g;
-              s/(JavaScriptRuntimeExecutor)\s*:\s*JavaScriptExecutor,\s*\@unchecked\s+Sendable\b/$1: JavaScriptExecutor/g;
-              s/,\s*\@unchecked\s+Sendable//g;
             ' "$file"
             patched=$((patched + 1))
           done < <(find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0)
