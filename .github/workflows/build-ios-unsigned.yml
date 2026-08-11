@@ -259,8 +259,8 @@ jobs:
           set -euo pipefail
 
           while IFS= read -r -d '' package_file; do
-            perl -pi -e 's/^(\h*)\),\r?$/$1)/' "$package_file"
-          done < <(find node_modules/.pnpm -path '*/expo-modules-jsi@*/node_modules/expo-modules-jsi/apple/Package.swift' -type f -print0)
+            perl -pi -e 'if (/^[ \t]*\),/) { s/,[ \t]*\r?$// }' "$package_file"
+          done < <(find . -type f -path '*/expo-modules-jsi*/apple/Package.swift' -print0)
 
           patched=0
           while IFS= read -r -d '' file; do
