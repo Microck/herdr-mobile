@@ -326,7 +326,9 @@ jobs:
           while IFS= read -r -d '' file; do
             perl -0pi -e '
               s/\bweak let\b/weak var/g;
-              s/\@MainActor\b/\@_Concurrency.MainActor/g;
+              if (/\@MainActor\b/ && !/^import _Concurrency\b/m) {
+                s/\A/import _Concurrency\n/;
+              }
             ' "$file"
             core_patched=$((core_patched + 1))
           done < <(find node_modules -type f -path '*/expo-modules-core/ios/Core/*' -name '*.swift' -print0)
