@@ -314,8 +314,9 @@ jobs:
             while IFS= read -r -d '' interface; do
               perl -0pi -e 's/_Concurrency\.MainActor/MainActor/g' "$interface"
             done < <(find "$archive_dir" -type f -name '*.swiftinterface' -print0)
-            (cd "$archive_dir" && tar -czf "$archive.tmp" .)
-            mv "$archive.tmp" "$archive"
+            archive_tmp="$(mktemp "${TMPDIR:-/tmp}/expo-modules-core.XXXXXX.tar.gz")"
+            tar -czf "$archive_tmp" -C "$archive_dir" .
+            mv "$archive_tmp" "$archive"
             rm -rf "$archive_dir"
             expo_core_patched=$((expo_core_patched + 1))
           done < <(find node_modules -type f -path '*/expo-modules-core/prebuilds/output/*/xcframeworks/ExpoModulesCore.tar.gz' -print0)
