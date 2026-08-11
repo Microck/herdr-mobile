@@ -85,6 +85,10 @@ jobs:
               s/public struct PropertyOptions: OptionSet, Sendable/public struct PropertyOptions: OptionSet, @unchecked Sendable/g;
               s/public struct PropertyOptions: OptionSet \{/public struct PropertyOptions: OptionSet, @unchecked Sendable {/g;
               s/(HostFunctionContext|HostObjectContext)\s*:\s*Sendable\b/$1/g;
+              s/internal final class HostFunctionContext(?:\s*:\s*(?:\@unchecked\s+)?Sendable)?/internal final class HostFunctionContext: \@unchecked Sendable/g;
+              s/internal final class HostObjectContext(?:\s*:\s*(?:\@unchecked\s+)?Sendable)?/internal final class HostObjectContext: \@unchecked Sendable/g;
+              s/consuming sending T/consuming T/g;
+              s/public func resolve<V: JavaScriptRepresentable>\(_ value: V\)/public func resolve<V: JavaScriptRepresentable \& Sendable>(_ value: V)/g;
             ' "$file"
           }
 
@@ -271,6 +275,10 @@ jobs:
               s/public struct PropertyOptions: OptionSet, Sendable/public struct PropertyOptions: OptionSet, \@unchecked Sendable/g;
               s/public struct PropertyOptions: OptionSet \{/public struct PropertyOptions: OptionSet, \@unchecked Sendable {/g;
               s/(HostFunctionContext|HostObjectContext)\s*:\s*Sendable\b/$1/g;
+              s/internal final class HostFunctionContext(?:\s*:\s*(?:\@unchecked\s+)?Sendable)?/internal final class HostFunctionContext: \@unchecked Sendable/g;
+              s/internal final class HostObjectContext(?:\s*:\s*(?:\@unchecked\s+)?Sendable)?/internal final class HostObjectContext: \@unchecked Sendable/g;
+              s/consuming sending T/consuming T/g;
+              s/public func resolve<V: JavaScriptRepresentable>\(_ value: V\)/public func resolve<V: JavaScriptRepresentable \& Sendable>(_ value: V)/g;
             ' "$file"
             patched=$((patched + 1))
           done < <(find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0)
