@@ -131,10 +131,26 @@ jobs:
               echo "Patched $spec"
               updated=1
             fi
-          done < <(find node_modules -name ClerkExpo.podspec -print0)
-          if [ "$updated" -eq 0 ]; then
-            echo "No ClerkExpo podspec files were patched"
-          fi
+            done < <(find node_modules -name ClerkExpo.podspec -print0)
+            if [ "$updated" -eq 0 ]; then
+              echo "No ClerkExpo podspec files were patched"
+            fi
+
+            clerk_ios_local_path="$PWD/build/ClerkIOS"
+            rm -rf "$clerk_ios_local_path"
+            git clone --depth 1 --branch "$TARGET_CLERK_IOS_VERSION" \
+              https://github.com/clerk/clerk-ios.git "$clerk_ios_local_path"
+            while IFS= read -r -d '' manifest; do
+              perl -0pi -e \
+                's#// swift-tools-version:\s*[0-9]+\.[0-9]+(?:\.[0-9]+)?#// swift-tools-version: 6.0#; s/,\s*\]/]/g; s/,\s*\)/)/g' \
+                "$manifest"
+            done < <(find "$clerk_ios_local_path" -type f -name Package.swift -print0)
+            while IFS= read -r -d '' spec; do
+              perl -0777 -i -pe \
+                "s#clerk_ios_repo = 'https://github.com/clerk/clerk-ios.git'#clerk_ios_repo = 'file://$clerk_ios_local_path'#g" \
+                "$spec"
+              echo "Using local patched Clerk iOS package for $spec"
+            done < <(find node_modules -name ClerkExpo.podspec -print0)
 
       - name: Install CocoaPods dependencies
         env:
