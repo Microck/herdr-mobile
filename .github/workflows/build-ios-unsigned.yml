@@ -71,9 +71,10 @@ jobs:
             perl -0pi -e '
               s/\bweak let\b/weak var/g;
               s/(JavaScriptValuesBuffer),\s*\n\s*(\))/$1\n$2/g;
-              s/(JavaScriptType)\s*:\s*Sendable\s*,\s*~Copyable/$1: ~Copyable/g;
-              s/(JavaScriptRepresentable)\s*:\s*Sendable\s*,\s*~Copyable/$1: ~Copyable/g;
-              s/(PropertyOptions)\s*:\s*OptionSet\s*\{/$1: OptionSet, Sendable {/g;
+              s/public protocol JavaScriptType: Sendable, ~Copyable/public protocol JavaScriptType: ~Copyable/g;
+              s/public protocol JavaScriptRepresentable: Sendable, ~Copyable/public protocol JavaScriptRepresentable: ~Copyable/g;
+              s/public struct PropertyOptions: OptionSet, Sendable/public struct PropertyOptions: OptionSet, @unchecked Sendable/g;
+              s/public struct PropertyOptions: OptionSet \{/public struct PropertyOptions: OptionSet, @unchecked Sendable {/g;
               s/(HostFunctionContext|HostObjectContext)\s*:\s*Sendable\b/$1/g;
               s/(JavaScriptRuntimeExecutor)\s*:\s*JavaScriptExecutor,\s*@unchecked\s+Sendable\b/$1: JavaScriptExecutor/g;
               s/,\s*@unchecked\s+Sendable//g;
