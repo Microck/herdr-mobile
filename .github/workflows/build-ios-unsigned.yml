@@ -327,6 +327,7 @@ jobs:
           done
 
           xcodebuild archive \
+            -disableAutomaticPackageResolution \
             -workspace "${{ steps.ios-target.outputs.workspace }}" \
             -scheme "${{ steps.ios-target.outputs.scheme }}" \
             -configuration Release \
