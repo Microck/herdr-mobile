@@ -71,6 +71,13 @@ jobs:
             perl -0pi -e '
               s/\bweak let\b/weak var/g;
               s/(JavaScriptValuesBuffer),\s*\n\s*(\))/$1\n$2/g;
+              s/Task\.immediate\(name: name, priority: priority, operation: operation\)/Task(priority: priority ?? .high, operation: operation)/g;
+              s/Task\(name: name, priority: \.high, operation: operation\)/Task(priority: .high, operation: operation)/g;
+              s/push_back\(consuming: propNameId\)/push_back(propNameId)/g;
+              s/expo\.RuntimeScheduler\(scheduler, fn\)/expo.createBoundRuntimeScheduler(scheduler, fn)/g;
+              s/expo\.RuntimeScheduler\(\)/expo.createStandaloneRuntimeScheduler()/g;
+              s/expo\.NativeState\(ptr, deallocate\)/expo.createNativeState(ptr, deallocate)/g;
+              s/expo\.HostFunctionClosure\(context, call, deallocate\)/expo.createHostFunctionClosure(context, call, deallocate)/g;
               s/public protocol JavaScriptType: Sendable, ~Copyable/public protocol JavaScriptType: ~Copyable/g;
               s/public protocol JavaScriptRepresentable: Sendable, ~Copyable/public protocol JavaScriptRepresentable: ~Copyable/g;
               s/public final class JavaScriptValue: JavaScriptType, Equatable, Escapable, Error \{/public final class JavaScriptValue: JavaScriptType, Equatable, Escapable, Error, \@unchecked Sendable {/g;
@@ -249,6 +256,13 @@ jobs:
             perl -0pi -e '
               s/\bweak let\b/weak var/g;
               s/(JavaScriptValuesBuffer),\s*\n\s*(\))/$1\n$2/g;
+              s/Task\.immediate\(name: name, priority: priority, operation: operation\)/Task(priority: priority ?? .high, operation: operation)/g;
+              s/Task\(name: name, priority: \.high, operation: operation\)/Task(priority: .high, operation: operation)/g;
+              s/push_back\(consuming: propNameId\)/push_back(propNameId)/g;
+              s/expo\.RuntimeScheduler\(scheduler, fn\)/expo.createBoundRuntimeScheduler(scheduler, fn)/g;
+              s/expo\.RuntimeScheduler\(\)/expo.createStandaloneRuntimeScheduler()/g;
+              s/expo\.NativeState\(ptr, deallocate\)/expo.createNativeState(ptr, deallocate)/g;
+              s/expo\.HostFunctionClosure\(context, call, deallocate\)/expo.createHostFunctionClosure(context, call, deallocate)/g;
               s/public protocol JavaScriptType: Sendable, ~Copyable/public protocol JavaScriptType: ~Copyable/g;
               s/public protocol JavaScriptRepresentable: Sendable, ~Copyable/public protocol JavaScriptRepresentable: ~Copyable/g;
               s/public final class JavaScriptValue: JavaScriptType, Equatable, Escapable, Error \{/public final class JavaScriptValue: JavaScriptType, Equatable, Escapable, Error, \@unchecked Sendable {/g;
@@ -258,6 +272,25 @@ jobs:
             ' "$file"
             patched=$((patched + 1))
           done < <(find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0)
+          header_patched=0
+          while IFS= read -r -d '' header; do
+            case "$header" in
+              *NativeState.h)
+                perl -0pi -e 's~} SWIFT_IMMORTAL_REFERENCE; // class NativeState\n\n} // namespace expo~} SWIFT_IMMORTAL_REFERENCE; // class NativeState\n\ninline NativeState *createNativeState(NativeState::Context context, NativeState::Deallocator deallocator) {\n  return new NativeState(context, deallocator);\n}\n\n} // namespace expo~' "$header"
+                ;;
+              *RuntimeScheduler.h)
+                perl -0pi -e 's~} SWIFT_SHARED_REFERENCE\(retainRuntimeScheduler, releaseRuntimeScheduler\);\n\n} // namespace expo~} SWIFT_SHARED_REFERENCE(retainRuntimeScheduler, releaseRuntimeScheduler);\n\ninline RuntimeScheduler *createStandaloneRuntimeScheduler() {\n  return new RuntimeScheduler();\n}\n\ninline RuntimeScheduler *createBoundRuntimeScheduler(void *scheduler, RuntimeScheduler::ScheduleFn fn) {\n  return new RuntimeScheduler(scheduler, fn);\n}\n\n} // namespace expo~' "$header"
+                ;;
+              *HostFunctionClosure.h)
+                perl -0pi -e 's~} SWIFT_IMMORTAL_REFERENCE; // class HostFunctionClosure\n\n} // namespace expo~} SWIFT_IMMORTAL_REFERENCE; // class HostFunctionClosure\n\ninline HostFunctionClosure *createHostFunctionClosure(HostFunctionClosure::Context context, HostFunctionClosure::Closure closure, HostFunctionClosure::Deallocator deallocator) {\n  return new HostFunctionClosure(context, closure, deallocator);\n}\n\n} // namespace expo~' "$header"
+                ;;
+            esac
+            header_patched=$((header_patched + 1))
+          done < <(find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/ExpoModulesJSI-Cxx/include/*.h' -print0)
+          if [ "$header_patched" -lt 3 ]; then
+            echo "Expected ExpoModulesJSI C++ bridge headers were not found" >&2
+            exit 1
+          fi
           if [ "$patched" -eq 0 ]; then
             echo "No ExpoModulesJSI Swift sources found in node_modules" >&2
             exit 1
