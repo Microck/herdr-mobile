@@ -331,7 +331,6 @@ jobs:
               s/\bweak let\b/weak var/g;
               s/^\s*\@MainActor\s*\n//mg;
               s/\@MainActor\s+//g;
-              s/(\s*)serializedComponents\["isRepeatedDay"\] = dateComponents\.isRepeatedDay \?\? false/$1if #available(iOS 26.0, *) {\n$1  serializedComponents["isRepeatedDay"] = dateComponents.isRepeatedDay ?? false\n$1}/g;
               if (/\bMainActor\b/ && !/^import _Concurrency\b/m) {
                 s/\A/import _Concurrency\n/;
               }
@@ -341,7 +340,7 @@ jobs:
 
           notification_patched=0
           while IFS= read -r -d '' file; do
-            perl -0pi -e 's/(\s*)serializedComponents\["isRepeatedDay"\] = dateComponents\.isRepeatedDay \?\? false/$1if #available(iOS 26.0, *) {\n$1  serializedComponents["isRepeatedDay"] = dateComponents.isRepeatedDay ?? false\n$1}/g' "$file"
+            perl -0pi -e 's/(\s*)serializedComponents\["isRepeatedDay"\] = dateComponents\.isRepeatedDay \?\? false/$1#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000\n$1serializedComponents["isRepeatedDay"] = dateComponents.isRepeatedDay ?? false\n$1#endif/g' "$file"
             notification_patched=$((notification_patched + 1))
           done < <(find node_modules -type f -path '*/expo-notifications/ios/ExpoNotifications/Notifications/DateComponentsSerializer.swift' -print0)
 
