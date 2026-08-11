@@ -258,10 +258,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          while IFS= read -r -d '' package_file; do
-            perl -pi -e 'if (/^[ \t]*\),/) { s/,[ \t]*\r?$// }' "$package_file"
-          done < <(find . -type f -path '*/expo-modules-jsi*/apple/Package.swift' -print0)
-
           patched=0
           while IFS= read -r -d '' file; do
             perl -0pi -e '
@@ -325,7 +321,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          xcodebuild archive \
+          xcodebuild \
             -workspace "${{ steps.ios-target.outputs.workspace }}" \
             -scheme "${{ steps.ios-target.outputs.scheme }}" \
             -configuration Release \
@@ -335,7 +331,22 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY= \
-            clean archive
+            clean
+
+          while IFS= read -r -d '' package_file; do
+            perl -pi -e 'if (/^[ \t]*\),/) { s/,[ \t]*\r?$// }' "$package_file"
+          done < <(find . -type f -path '*/expo-modules-jsi*/apple/Package.swift' -print0)
+
+          xcodebuild archive \
+            -workspace "${{ steps.ios-target.outputs.workspace }}" \
+            -scheme "${{ steps.ios-target.outputs.scheme }}" \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "${{ steps.paths.outputs.archive }}" \
+            -derivedDataPath "$PWD/build/DerivedData" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY=
 
       - name: Create unsigned IPA
         id: ipa
