@@ -145,7 +145,11 @@ jobs:
                 's#// swift-tools-version:\s*[0-9]+\.[0-9]+(?:\.[0-9]+)?#// swift-tools-version: 6.0#; s/,\s*\]/]/g; s/,\s*\)/)/g' \
                 "$manifest"
             done < <(find "$clerk_ios_local_path" -type f -name Package.swift -print0)
-            git -C "$clerk_ios_local_path" add Package.swift
+            clerk_sync_file="$clerk_ios_local_path/Sources/ClerkKit/SharedSessionSync/SharedSessionSyncCoordinator.swift"
+            perl -0pi -e \
+              's/guard let clerk, isCurrent\(clerk: clerk\)/guard let clerk = self.clerk, self.isCurrent(clerk: clerk)/; s/(\n\s+)responseCanPublish\(/$1self.responseCanPublish(/; s/currentDeviceToken: currentDeviceToken/currentDeviceToken: self.currentDeviceToken/' \
+              "$clerk_sync_file"
+            git -C "$clerk_ios_local_path" add Package.swift Sources/ClerkKit/SharedSessionSync/SharedSessionSyncCoordinator.swift
             git -C "$clerk_ios_local_path" \
               -c user.name=CI -c user.email=ci@example.com \
               commit -m "ci: use Swift 6.0 package manifest" >/dev/null
