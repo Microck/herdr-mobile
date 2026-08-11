@@ -73,6 +73,7 @@ jobs:
               s/(JavaScriptValuesBuffer),\s*\n\s*(\))/$1\n$2/g;
               s/public protocol JavaScriptType: Sendable, ~Copyable/public protocol JavaScriptType: ~Copyable/g;
               s/public protocol JavaScriptRepresentable: Sendable, ~Copyable/public protocol JavaScriptRepresentable: ~Copyable/g;
+              s/public final class JavaScriptValue: JavaScriptType, Equatable, Escapable, Error \{/public final class JavaScriptValue: JavaScriptType, Equatable, Escapable, Error, \@unchecked Sendable {/g;
               s/public struct PropertyOptions: OptionSet, Sendable/public struct PropertyOptions: OptionSet, @unchecked Sendable/g;
               s/public struct PropertyOptions: OptionSet \{/public struct PropertyOptions: OptionSet, @unchecked Sendable {/g;
               s/(HostFunctionContext|HostObjectContext)\s*:\s*Sendable\b/$1/g;
@@ -250,6 +251,7 @@ jobs:
               s/(JavaScriptValuesBuffer),\s*\n\s*(\))/$1\n$2/g;
               s/public protocol JavaScriptType: Sendable, ~Copyable/public protocol JavaScriptType: ~Copyable/g;
               s/public protocol JavaScriptRepresentable: Sendable, ~Copyable/public protocol JavaScriptRepresentable: ~Copyable/g;
+              s/public final class JavaScriptValue: JavaScriptType, Equatable, Escapable, Error \{/public final class JavaScriptValue: JavaScriptType, Equatable, Escapable, Error, \@unchecked Sendable {/g;
               s/public struct PropertyOptions: OptionSet, Sendable/public struct PropertyOptions: OptionSet, \@unchecked Sendable/g;
               s/public struct PropertyOptions: OptionSet \{/public struct PropertyOptions: OptionSet, \@unchecked Sendable {/g;
               s/(HostFunctionContext|HostObjectContext)\s*:\s*Sendable\b/$1/g;
