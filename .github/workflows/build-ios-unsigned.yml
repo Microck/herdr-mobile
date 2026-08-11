@@ -74,6 +74,7 @@ jobs:
               s/Task\.immediate\(name: name, priority: priority, operation: operation\)/Task(priority: priority ?? .high, operation: operation)/g;
               s/Task\(name: name, priority: \.high, operation: operation\)/Task(priority: .high, operation: operation)/g;
               s/push_back\(consuming: propNameId\)/push_back(propNameId)/g;
+              s/let propNameId = facebook\.jsi\.PropNameID\.forUtf8/var propNameId = facebook.jsi.PropNameID.forUtf8/g;
               s/expo\.RuntimeScheduler\(scheduler, fn\)/expo.createBoundRuntimeScheduler(scheduler, fn)/g;
               s/expo\.RuntimeScheduler\(\)/expo.createStandaloneRuntimeScheduler()/g;
               s/expo\.NativeState\(ptr, deallocate\)/expo.createNativeState(ptr, deallocate)/g;
@@ -259,6 +260,7 @@ jobs:
               s/Task\.immediate\(name: name, priority: priority, operation: operation\)/Task(priority: priority ?? .high, operation: operation)/g;
               s/Task\(name: name, priority: \.high, operation: operation\)/Task(priority: .high, operation: operation)/g;
               s/push_back\(consuming: propNameId\)/push_back(propNameId)/g;
+              s/let propNameId = facebook\.jsi\.PropNameID\.forUtf8/var propNameId = facebook.jsi.PropNameID.forUtf8/g;
               s/expo\.RuntimeScheduler\(scheduler, fn\)/expo.createBoundRuntimeScheduler(scheduler, fn)/g;
               s/expo\.RuntimeScheduler\(\)/expo.createStandaloneRuntimeScheduler()/g;
               s/expo\.NativeState\(ptr, deallocate\)/expo.createNativeState(ptr, deallocate)/g;
