@@ -353,6 +353,19 @@ jobs:
             image_picker_patched=$((image_picker_patched + 1))
           done < <(find node_modules -type f -path '*/expo-image-picker/ios/MediaHandler.swift' -print0)
 
+          expo_image_patched=0
+          while IFS= read -r -d '' file; do
+            perl -0pi -e '
+              s/sdImageView\.addSymbolEffect\(\.drawOn\.byLayer, options: options\)/break/g;
+              s/sdImageView\.addSymbolEffect\(\.drawOn\.wholeSymbol, options: options\)/break/g;
+              s/sdImageView\.addSymbolEffect\(\.drawOn, options: options\)/break/g;
+              s/sdImageView\.addSymbolEffect\(\.drawOff\.byLayer, options: options\)/break/g;
+              s/sdImageView\.addSymbolEffect\(\.drawOff\.wholeSymbol, options: options\)/break/g;
+              s/sdImageView\.addSymbolEffect\(\.drawOff, options: options\)/break/g;
+            ' "$file"
+            expo_image_patched=$((expo_image_patched + 1))
+          done < <(find node_modules -type f -path '*/expo-image/ios/ImageView.swift' -print0)
+
           if [ "$core_patched" -eq 0 ]; then
             echo "No ExpoModulesCore Swift sources found in node_modules" >&2
             exit 1
@@ -363,6 +376,10 @@ jobs:
           fi
           if [ "$image_picker_patched" -eq 0 ]; then
             echo "No Expo image picker media handler found in node_modules" >&2
+            exit 1
+          fi
+          if [ "$expo_image_patched" -eq 0 ]; then
+            echo "No Expo image view found in node_modules" >&2
             exit 1
           fi
           echo "Patched ExpoModulesCore Swift sources in $core_patched files."
