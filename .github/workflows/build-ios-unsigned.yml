@@ -1,6 +1,9 @@
 name: Build unsigned iOS IPA
 
 on:
+  push:
+    branches:
+      - ios-unsigned-spm-fix
   workflow_dispatch:
     inputs:
       relay_url:
