@@ -333,9 +333,10 @@ jobs:
             CODE_SIGN_IDENTITY= \
             clean
 
-          while IFS= read -r -d '' package_file; do
+          for package_file in node_modules/.pnpm/expo-modules-jsi@*/node_modules/expo-modules-jsi/apple/Package.swift; do
+            [ -f "$package_file" ] || continue
             perl -pi -e 'if (/^[ \t]*\),/) { s/,[ \t]*\r?$// }' "$package_file"
-          done < <(find node_modules -path '*/expo-modules-jsi*/apple/Package.swift' -print0)
+          done
 
           xcodebuild archive \
             -workspace "${{ steps.ios-target.outputs.workspace }}" \
