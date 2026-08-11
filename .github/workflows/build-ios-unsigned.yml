@@ -317,6 +317,26 @@ jobs:
           fi
           echo "Reapplied ExpoModulesJSI patch to $patched Swift source files."
 
+      - name: Patch ExpoModulesCore Swift sources for Xcode compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          core_patched=0
+          while IFS= read -r -d '' file; do
+            perl -0pi -e '
+              s/\bweak let\b/weak var/g;
+              s/\@MainActor\b/\@_Concurrency.MainActor/g;
+            ' "$file"
+            core_patched=$((core_patched + 1))
+          done < <(find node_modules -type f -path '*/expo-modules-core/ios/Core/*' -name '*.swift' -print0)
+
+          if [ "$core_patched" -eq 0 ]; then
+            echo "No ExpoModulesCore Swift sources found in node_modules" >&2
+            exit 1
+          fi
+          echo "Patched ExpoModulesCore Swift sources in $core_patched files."
+
       - name: Archive unsigned app
         shell: bash
         run: |
