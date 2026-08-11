@@ -237,7 +237,7 @@ jobs:
 
           echo "Running initial SwiftPM resolve pass (with no-sign config)."
           if ! run_resolve; then
-            if ! grep -Eq 'package .* is using Swift tools version 6\.2\.0' "$RESOLVE_LOG"; then
+            if ! grep -Eq 'package .* is using Swift tools version 6\.2\.0|contains incompatible tools version \(6\.2\.0\)' "$RESOLVE_LOG"; then
               cat "$RESOLVE_LOG" >&2
               exit 1
             fi
