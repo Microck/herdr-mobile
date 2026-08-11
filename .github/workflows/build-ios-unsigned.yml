@@ -325,6 +325,14 @@ jobs:
             exit 1
           fi
 
+          for root in node_modules ios build; do
+            if [ -d "$root" ]; then
+              while IFS= read -r -d '' interface; do
+                perl -0pi -e 's/_Concurrency\.MainActor/MainActor/g' "$interface"
+              done < <(find "$root" -type f -path '*ExpoModulesCore.xcframework*' -name '*.swiftinterface' -print0)
+            fi
+          done
+
           if [ "$header_patched" -lt 3 ]; then
             echo "Expected ExpoModulesJSI C++ bridge headers were not found" >&2
             exit 1
