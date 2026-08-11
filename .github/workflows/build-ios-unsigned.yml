@@ -73,7 +73,8 @@ jobs:
               s/(JavaScriptValuesBuffer),\s*\n\s*(\))/$1\n$2/g;
               s/Task\.immediate\(name: name, priority: priority, operation: operation\)/Task(priority: priority ?? .high, operation: operation)/g;
               s/Task\(name: name, priority: \.high, operation: operation\)/Task(priority: .high, operation: operation)/g;
-              s/vector\.push_back\(consuming: propNameId\)/expo.appendPropNameId(\&vector, runtime, std.string(propertyName))/g;
+              s/vector\.push_back\(consuming: propNameId\)/expo.appendPropNameId(\&vector, runtime.pointee, std.string(propertyName))/g;
+              s/        let propNameId = facebook\.jsi\.PropNameID\.forUtf8\(runtime\.pointee, std\.string\(propertyName\)\)\n//g;
               s/expo\.RuntimeScheduler\(scheduler, fn\)/expo.createBoundRuntimeScheduler(scheduler, fn)/g;
               s/expo\.RuntimeScheduler\(\)/expo.createStandaloneRuntimeScheduler()/g;
               s/expo\.NativeState\(ptr, deallocate\)/expo.createNativeState(ptr, deallocate)/g;
@@ -258,7 +259,8 @@ jobs:
               s/(JavaScriptValuesBuffer),\s*\n\s*(\))/$1\n$2/g;
               s/Task\.immediate\(name: name, priority: priority, operation: operation\)/Task(priority: priority ?? .high, operation: operation)/g;
               s/Task\(name: name, priority: \.high, operation: operation\)/Task(priority: .high, operation: operation)/g;
-              s/vector\.push_back\(consuming: propNameId\)/expo.appendPropNameId(\&vector, runtime, std.string(propertyName))/g;
+              s/vector\.push_back\(consuming: propNameId\)/expo.appendPropNameId(\&vector, runtime.pointee, std.string(propertyName))/g;
+              s/        let propNameId = facebook\.jsi\.PropNameID\.forUtf8\(runtime\.pointee, std\.string\(propertyName\)\)\n//g;
               s/expo\.RuntimeScheduler\(scheduler, fn\)/expo.createBoundRuntimeScheduler(scheduler, fn)/g;
               s/expo\.RuntimeScheduler\(\)/expo.createStandaloneRuntimeScheduler()/g;
               s/expo\.NativeState\(ptr, deallocate\)/expo.createNativeState(ptr, deallocate)/g;
