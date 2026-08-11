@@ -326,7 +326,9 @@ jobs:
           while IFS= read -r -d '' file; do
             perl -0pi -e '
               s/\bweak let\b/weak var/g;
-              if (/\@MainActor\b/ && !/^import _Concurrency\b/m) {
+              s/^\s*\@MainActor\s*\n//mg;
+              s/\@MainActor\s+//g;
+              if (/\bMainActor\b/ && !/^import _Concurrency\b/m) {
                 s/\A/import _Concurrency\n/;
               }
             ' "$file"
