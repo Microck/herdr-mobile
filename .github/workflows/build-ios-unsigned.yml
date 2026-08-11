@@ -339,8 +339,18 @@ jobs:
             core_patched=$((core_patched + 1))
           done < <(find node_modules -type f -path '*/expo-modules-core/ios/Core/*' -name '*.swift' -print0)
 
+          notification_patched=0
+          while IFS= read -r -d '' file; do
+            perl -0pi -e 's/(\s*)serializedComponents\["isRepeatedDay"\] = dateComponents\.isRepeatedDay \?\? false/$1if #available(iOS 26.0, *) {\n$1  serializedComponents["isRepeatedDay"] = dateComponents.isRepeatedDay ?? false\n$1}/g' "$file"
+            notification_patched=$((notification_patched + 1))
+          done < <(find node_modules -type f -path '*/expo-notifications/ios/ExpoNotifications/Notifications/DateComponentsSerializer.swift' -print0)
+
           if [ "$core_patched" -eq 0 ]; then
             echo "No ExpoModulesCore Swift sources found in node_modules" >&2
+            exit 1
+          fi
+          if [ "$notification_patched" -eq 0 ]; then
+            echo "No Expo notifications date serializer found in node_modules" >&2
             exit 1
           fi
           echo "Patched ExpoModulesCore Swift sources in $core_patched files."
