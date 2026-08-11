@@ -300,8 +300,8 @@ jobs:
           done < <(find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/ExpoModulesJSI-Cxx/include/*.h' -print0)
           while IFS= read -r -d '' file; do
             perl -0pi -e '
-              s~    if \(@available\(iOS 26\.0, \*\)\) \{\n      navitem\.subtitle = config\.subtitle;\n      navitem\.largeSubtitle = config\.largeSubtitle;\n    \}~#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000\n    if (@available(iOS 26.0, *)) {\n      navitem.subtitle = config.subtitle;\n      navitem.largeSubtitle = config.largeSubtitle;\n    }\n#endif~g;
-              s~  if \(@available\(iOS 26\.0, \*\)\) \{\n    navitem\.subtitle = config\.subtitle;\n    navitem\.largeSubtitle = config\.largeSubtitle;\n  \}~#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000\n  if (@available(iOS 26.0, *)) {\n    navitem.subtitle = config.subtitle;\n    navitem.largeSubtitle = config.largeSubtitle;\n  }\n#endif~g;
+              s~    if \(\@available\(iOS 26\.0, \*\)\) \{\n      navitem\.subtitle = config\.subtitle;\n      navitem\.largeSubtitle = config\.largeSubtitle;\n    \}~#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000\n    if (\@available(iOS 26.0, *)) {\n      navitem.subtitle = config.subtitle;\n      navitem.largeSubtitle = config.largeSubtitle;\n    }\n#endif~g;
+              s~  if \(\@available\(iOS 26\.0, \*\)\) \{\n    navitem\.subtitle = config\.subtitle;\n    navitem\.largeSubtitle = config\.largeSubtitle;\n  \}~#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000\n  if (\@available(iOS 26.0, *)) {\n    navitem.subtitle = config.subtitle;\n    navitem.largeSubtitle = config.largeSubtitle;\n  }\n#endif~g;
             ' "$file"
           done < <(find node_modules -type f -path '*/react-native-screens/ios/RNSScreenStackHeaderConfig.mm' -print0)
           if [ "$header_patched" -lt 3 ]; then
