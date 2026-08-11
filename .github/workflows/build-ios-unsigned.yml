@@ -68,13 +68,13 @@ jobs:
 
           patch_sendable_file() {
             local file="$1"
-            perl -pi -e '
+            perl -0pi -e '
               s/\bweak let\b/weak var/g;
-              s/,\s*\)/)/g;
-              s/public protocol JavaScriptType\s*:\s*Sendable\s*,\s*~Copyable/public protocol JavaScriptType: ~Copyable/;
-              s/(^\\s*(?:public|internal|fileprivate|private|open)?\\s*(?:final\\s+)?class\\s+JavaScriptRuntimeExecutor)\\s*:[^{]*\\{/$1: JavaScriptExecutor, @unchecked Sendable {/m;
-              s/(^\\s*(?:public|internal|fileprivate|private|open)?\\s*(?:final\\s+)?class\\s+HostFunctionContext)\s*:\s*Sendable/$1/m;
-              s/(^\\s*(?:public|internal|fileprivate|private|open)?\\s*(?:final\\s+)?class\\s+HostObjectContext)\s*:\s*Sendable/$1/m;
+              s/(JavaScriptValuesBuffer),\s*\n\s*(\))/$1\n$2/g;
+              s/(JavaScriptType)\s*:\s*Sendable\s*,\s*~Copyable/$1: ~Copyable/g;
+              s/(HostFunctionContext|HostObjectContext)\s*:\s*Sendable\b/$1/g;
+              s/(JavaScriptRuntimeExecutor)\s*:\s*JavaScriptExecutor,\s*@unchecked\s+Sendable\b/$1: JavaScriptExecutor/g;
+              s/,\s*@unchecked\s+Sendable//g;
             ' "$file"
           }
 
@@ -83,6 +83,7 @@ jobs:
             patch_sendable_file "$file"
             patched=$((patched + 1))
           done < <(
+            find . -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
             {
               find node_modules -type f -path '*/expo-modules-jsi*/apple/Sources/*' -name '*.swift' -print0
               if [ -d "build/SourcePackages/checkouts" ]; then
