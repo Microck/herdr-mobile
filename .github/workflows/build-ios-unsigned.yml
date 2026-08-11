@@ -147,7 +147,7 @@ jobs:
             done < <(find "$clerk_ios_local_path" -type f -name Package.swift -print0)
             clerk_sync_file="$clerk_ios_local_path/Sources/ClerkKit/SharedSessionSync/SharedSessionSyncCoordinator.swift"
             perl -0pi -e \
-              's/guard let clerk, isCurrent\(clerk: clerk\)/guard let clerk = self.clerk, self.isCurrent(clerk: clerk)/; s/(\n\s+)responseCanPublish\(/$1self.responseCanPublish(/; s/currentDeviceToken: currentDeviceToken/currentDeviceToken: self.currentDeviceToken/' \
+              's/guard let clerk, isCurrent\(clerk: clerk\)/guard let clerk = self.clerk, self.isCurrent(clerk: clerk)/; s/(\n\s+)responseCanPublish\(/$1self.responseCanPublish(/; s/(\n\s+)responseCanBeAccepted\(/$1self.responseCanBeAccepted(/; s/currentDeviceToken: currentDeviceToken/currentDeviceToken: self.currentDeviceToken/' \
               "$clerk_sync_file"
             git -C "$clerk_ios_local_path" add Package.swift Sources/ClerkKit/SharedSessionSync/SharedSessionSyncCoordinator.swift
             git -C "$clerk_ios_local_path" \
