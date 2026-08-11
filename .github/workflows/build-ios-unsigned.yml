@@ -424,6 +424,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY= \
             SWIFT_VERSION=5.9 \
+            OTHER_SWIFT_FLAGS='$(inherited) -enable-experimental-feature IsolatedDeinit' \
             SWIFT_STRICT_CONCURRENCY=minimal
 
       - name: Create unsigned IPA
