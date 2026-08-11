@@ -149,6 +149,7 @@ jobs:
             git -C "$clerk_ios_local_path" \
               -c user.name=CI -c user.email=ci@example.com \
               commit -m "ci: use Swift 6.0 package manifest" >/dev/null
+            git -C "$clerk_ios_local_path" tag -f "$TARGET_CLERK_IOS_VERSION" HEAD >/dev/null
             while IFS= read -r -d '' spec; do
               perl -0777 -i -pe \
                 "s#clerk_ios_repo = 'https://github.com/clerk/clerk-ios.git'#clerk_ios_repo = 'file://$clerk_ios_local_path'#g" \
