@@ -145,6 +145,10 @@ jobs:
                 's#// swift-tools-version:\s*[0-9]+\.[0-9]+(?:\.[0-9]+)?#// swift-tools-version: 6.0#; s/,\s*\]/]/g; s/,\s*\)/)/g' \
                 "$manifest"
             done < <(find "$clerk_ios_local_path" -type f -name Package.swift -print0)
+            git -C "$clerk_ios_local_path" add Package.swift
+            git -C "$clerk_ios_local_path" \
+              -c user.name=CI -c user.email=ci@example.com \
+              commit -m "ci: use Swift 6.0 package manifest" >/dev/null
             while IFS= read -r -d '' spec; do
               perl -0777 -i -pe \
                 "s#clerk_ios_repo = 'https://github.com/clerk/clerk-ios.git'#clerk_ios_repo = 'file://$clerk_ios_local_path'#g" \
