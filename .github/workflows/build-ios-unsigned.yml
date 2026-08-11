@@ -304,6 +304,26 @@ jobs:
               s~  if \(\@available\(iOS 26\.0, \*\)\) \{\n    navitem\.subtitle = config\.subtitle;\n    navitem\.largeSubtitle = config\.largeSubtitle;\n  \}~#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000\n  if (\@available(iOS 26.0, *)) {\n    navitem.subtitle = config.subtitle;\n    navitem.largeSubtitle = config.largeSubtitle;\n  }\n#endif~g;
             ' "$file"
           done < <(find node_modules -type f -path '*/react-native-screens/ios/RNSScreenStackHeaderConfig.mm' -print0)
+
+          # SDK 56 prebuilt interfaces can contain Swift 6.3.1's qualified
+          # actor spelling, which Swift 6.1.2 in Xcode 16.4 cannot parse.
+          expo_core_patched=0
+          while IFS= read -r -d '' archive; do
+            archive_dir="$(mktemp -d)"
+            tar -xzf "$archive" -C "$archive_dir"
+            while IFS= read -r -d '' interface; do
+              perl -0pi -e 's/_Concurrency\.MainActor/MainActor/g' "$interface"
+            done < <(find "$archive_dir" -type f -name '*.swiftinterface' -print0)
+            (cd "$archive_dir" && tar -czf "$archive.tmp" .)
+            mv "$archive.tmp" "$archive"
+            rm -rf "$archive_dir"
+            expo_core_patched=$((expo_core_patched + 1))
+          done < <(find node_modules -type f -path '*/expo-modules-core/prebuilds/output/*/xcframeworks/ExpoModulesCore.tar.gz' -print0)
+          if [ "$expo_core_patched" -eq 0 ]; then
+            echo "Expected ExpoModulesCore prebuilt archive was not found" >&2
+            exit 1
+          fi
+
           if [ "$header_patched" -lt 3 ]; then
             echo "Expected ExpoModulesJSI C++ bridge headers were not found" >&2
             exit 1
