@@ -328,6 +328,9 @@ jobs:
               s/\bweak let\b/weak var/g;
               s/^\s*\@MainActor\s*\n//mg;
               s/\@MainActor\s+//g;
+              s/(\s*)serializedComponents\["isRepeatedDay"\] = dateComponents\.isRepeatedDay \?\? false/$1if #available(iOS 26.0, *) {
+$1  serializedComponents["isRepeatedDay"] = dateComponents.isRepeatedDay ?? false
+$1}/g;
               if (/\bMainActor\b/ && !/^import _Concurrency\b/m) {
                 s/\A/import _Concurrency\n/;
               }
