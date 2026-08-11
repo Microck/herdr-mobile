@@ -409,6 +409,23 @@ jobs:
           fi
           echo "Patched ExpoModulesCore Swift sources in $core_patched files."
 
+      - name: Patch Nuke Swift source for Xcode compatibility
+        run: |
+          set -euo pipefail
+          nuke_patched=0
+          while IFS= read -r -d '' source; do
+            perl -0pi -e 's/\bisolated\s+deinit\b/deinit/g' "$source"
+            echo "Patched $source"
+            nuke_patched=1
+          done < <(find -L build -type f \( \
+            -path '*/Nuke/Sources/Nuke/Pipeline/ImagePipeline.swift' -o \
+            -path '*/Nuke/Sources/Nuke/Prefetching/ImagePrefetcher.swift' \
+          \) -print0)
+          if [ "$nuke_patched" -eq 0 ]; then
+            echo "No Nuke source files were patched" >&2
+            exit 1
+          fi
+
       - name: Archive unsigned app
         shell: bash
         run: |
@@ -424,7 +441,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY= \
             SWIFT_VERSION=5.9 \
-            OTHER_SWIFT_FLAGS='$(inherited) -enable-experimental-feature IsolatedDeinit' \
             SWIFT_STRICT_CONCURRENCY=minimal
 
       - name: Create unsigned IPA
