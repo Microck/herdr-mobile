@@ -73,8 +73,7 @@ jobs:
               s/(JavaScriptValuesBuffer),\s*\n\s*(\))/$1\n$2/g;
               s/Task\.immediate\(name: name, priority: priority, operation: operation\)/Task(priority: priority ?? .high, operation: operation)/g;
               s/Task\(name: name, priority: \.high, operation: operation\)/Task(priority: .high, operation: operation)/g;
-              s/push_back\(consuming: propNameId\)/push_back(propNameId)/g;
-              s/let propNameId = facebook\.jsi\.PropNameID\.forUtf8/var propNameId = facebook.jsi.PropNameID.forUtf8/g;
+              s/vector\.push_back\(consuming: propNameId\)/expo.appendPropNameId(\&vector, runtime, std.string(propertyName))/g;
               s/expo\.RuntimeScheduler\(scheduler, fn\)/expo.createBoundRuntimeScheduler(scheduler, fn)/g;
               s/expo\.RuntimeScheduler\(\)/expo.createStandaloneRuntimeScheduler()/g;
               s/expo\.NativeState\(ptr, deallocate\)/expo.createNativeState(ptr, deallocate)/g;
@@ -259,8 +258,7 @@ jobs:
               s/(JavaScriptValuesBuffer),\s*\n\s*(\))/$1\n$2/g;
               s/Task\.immediate\(name: name, priority: priority, operation: operation\)/Task(priority: priority ?? .high, operation: operation)/g;
               s/Task\(name: name, priority: \.high, operation: operation\)/Task(priority: .high, operation: operation)/g;
-              s/push_back\(consuming: propNameId\)/push_back(propNameId)/g;
-              s/let propNameId = facebook\.jsi\.PropNameID\.forUtf8/var propNameId = facebook.jsi.PropNameID.forUtf8/g;
+              s/vector\.push_back\(consuming: propNameId\)/expo.appendPropNameId(\&vector, runtime, std.string(propertyName))/g;
               s/expo\.RuntimeScheduler\(scheduler, fn\)/expo.createBoundRuntimeScheduler(scheduler, fn)/g;
               s/expo\.RuntimeScheduler\(\)/expo.createStandaloneRuntimeScheduler()/g;
               s/expo\.NativeState\(ptr, deallocate\)/expo.createNativeState(ptr, deallocate)/g;
@@ -284,7 +282,8 @@ jobs:
                 perl -0pi -e 's~} SWIFT_SHARED_REFERENCE\(retainRuntimeScheduler, releaseRuntimeScheduler\);\n\n} // namespace expo~} SWIFT_SHARED_REFERENCE(retainRuntimeScheduler, releaseRuntimeScheduler);\n\ninline RuntimeScheduler *createStandaloneRuntimeScheduler() {\n  return new RuntimeScheduler();\n}\n\ninline RuntimeScheduler *createBoundRuntimeScheduler(void *scheduler, RuntimeScheduler::ScheduleFn fn) {\n  return new RuntimeScheduler(scheduler, fn);\n}\n\n} // namespace expo~' "$header"
                 ;;
               *HostFunctionClosure.h)
-                perl -0pi -e 's~} SWIFT_IMMORTAL_REFERENCE; // class HostFunctionClosure\n\n} // namespace expo~} SWIFT_IMMORTAL_REFERENCE; // class HostFunctionClosure\n\ninline HostFunctionClosure *createHostFunctionClosure(HostFunctionClosure::Context context, HostFunctionClosure::Closure closure, HostFunctionClosure::Deallocator deallocator) {\n  return new HostFunctionClosure(context, closure, deallocator);\n}\n\n} // namespace expo~' "$header"
+                perl -0pi -e 's~#include <jsi/jsi.h>~#include <jsi/jsi.h>\n#include <vector>~' "$header"
+                perl -0pi -e 's~} SWIFT_IMMORTAL_REFERENCE; // class HostFunctionClosure\n\n} // namespace expo~} SWIFT_IMMORTAL_REFERENCE; // class HostFunctionClosure\n\ninline HostFunctionClosure *createHostFunctionClosure(HostFunctionClosure::Context context, HostFunctionClosure::Closure closure, HostFunctionClosure::Deallocator deallocator) {\n  return new HostFunctionClosure(context, closure, deallocator);\n}\n\ninline void appendPropNameId(std::vector<facebook::jsi::PropNameID> *propNameIds, facebook::jsi::Runtime *runtime, std::string propertyName) {\n  propNameIds->push_back(facebook::jsi::PropNameID::forUtf8(*runtime, propertyName));\n}\n\n} // namespace expo~' "$header"
                 ;;
             esac
             header_patched=$((header_patched + 1))
